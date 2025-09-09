@@ -1,0 +1,37 @@
+{
+  "name": "starter",
+  "author": "Napu 😎",
+  "description": "A minimal JavaScript starter project with Rollup, PostCSS, and optimized build tooling for modern web development.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wonderup-agency/starter"
+  },
+  "version": "1.0.0",
+  "main": "dist/main.js",
+  "scripts": {
+    "server": "http-server -c-1 ./dist --cors",
+    "dev": "rollup --config rollup.config.dev.js --watch",
+    "build": "rollup --config rollup.config.prod.js",
+    "prebuild": "prettier . --write",
+    "format": "prettier . --write"
+  },
+  "keywords": [
+    "javascript",
+    "starter",
+    "rollup",
+    "postcss",
+    "bundle"
+  ],
+  "license": "ISC",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
+    "http-server": "^14.1.1",
+    "postcss": "^8.5.6",
+    "prettier": "^3.6.2",
+    "rollup": "^4.47.1",
+    "rollup-plugin-delete": "^3.0.1",
+    "rollup-plugin-postcss": "^4.0.2"
+  }
+}

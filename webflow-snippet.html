@@ -1,0 +1,49 @@
+<!--
+Local: http://127.0.0.1:8080/main.js
+Production: https://cdn.jsdelivr.net/gh/wonderup-agency/your-repo@main/dist/main.js
+-->
+
+<script
+  src="http://127.0.0.1:8080/main.js"
+  defer
+  type="module"
+  onerror="console.warn('Local JS main failed, loading fallback...'); 
+           var s = document.createElement('script'); 
+           s.src = 'https://cdn.jsdelivr.net/gh/wonderup-agency/your-repo@main/dist/main.js'; 
+           s.type = 'module'; 
+           s.defer = true; 
+           document.head.appendChild(s);"
+></script>
+
+<!--
+Webflow Snippet Usage Guide
+
+Purpose:
+This snippet enables seamless switching between local and production JavaScript assets in a Webflow project. It loads local assets during development and falls back to production assets hosted on a CDN if the local server is unavailable.
+
+Setup Instructions:
+
+1. Integration into Webflow:
+   - Copy the entire code from the first line to the closing </script> tag.
+   - Paste it into Webflow → Project Settings → Custom Code → Head section.
+
+2. Local Development:
+   - Set the `src` attribute of the <script> tag to your local server URL (e.g., http://127.0.0.1:8080/main.js).
+   - Retain the `onerror` attribute as-is to ensure fallback to the production CDN if the local server is unavailable.
+
+3. Production Deployment:
+   - Update the `src` attribute to the production CDN URL (e.g., https://cdn.jsdelivr.net/gh/wonderup-agency/your-repo@main/dist/main.js).
+   - Ensure the `onerror` attribute remains unchanged to provide a reliable fallback for end users.
+
+4. Best Practices:
+   - Do not remove the commented reference URLs above the <script> tag. They serve as a quick reference for switching between local and production environments.
+   - Update the fallback URL in the `onerror` attribute only once, ensuring it points to the correct production CDN URL with the appropriate repository name.
+
+Expected Behavior:
+   - During development: Loads assets from the local server for rapid iteration.
+   - In production or if the local server is unavailable: Automatically falls back to the production build hosted on the CDN.
+
+Notes:
+   - Ensure the repository name in the CDN URL (e.g., `your-repo`) is updated to match your actual repository.
+   - The `onerror` fallback dynamically creates a new <script> tag to load the production assets, which will increase loading time for users as it waits for the local URL to fail before fetching from the production CDN URL.
+-->
