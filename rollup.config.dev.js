@@ -3,6 +3,8 @@ import del from 'rollup-plugin-delete'
 import resolve from '@rollup/plugin-node-resolve'
 import postcss from 'rollup-plugin-postcss'
 import commonjs from '@rollup/plugin-commonjs'
+import json from '@rollup/plugin-json'
+import url from '@rollup/plugin-url'
 
 export default defineConfig({
   input: 'src/main.js',
@@ -23,6 +25,11 @@ export default defineConfig({
       inject: {
         insertAt: 'top',
       },
+    }),
+    json(),
+    url({
+      include: ['**/*.png', '**/*.jpg', '**/*.svg'],
+      limit: 0, // always copy files
     }),
   ],
 })

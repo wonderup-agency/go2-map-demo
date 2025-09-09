@@ -25,13 +25,18 @@
   "license": "ISC",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.6",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-url": "^8.0.2",
     "http-server": "^14.1.1",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "rollup": "^4.47.1",
     "rollup-plugin-delete": "^3.0.1",
     "rollup-plugin-postcss": "^4.0.2"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
   }
 }
