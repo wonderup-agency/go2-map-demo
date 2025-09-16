@@ -8,7 +8,7 @@ import 'leaflet/dist/leaflet.css'
 export default async function (component) {
   const centersList = component.querySelector("[data-centers='list']")
   const mapEl = component.querySelector("[data-centers='map']")
-  const zipField = component.querySelector("[data-centers='zip-field']")
+  const zipField = component.querySelector("[data-custom='centers-zip-field']")
   const categoriesSelect = component.querySelector(
     "[data-centers='categories-select']"
   )
@@ -51,9 +51,7 @@ export default async function (component) {
   }
 
   // Add OpenStreetMap tiles
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-  }).addTo(map)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
 
   // Fetch health centers data
   let healthCenters = []
@@ -101,42 +99,44 @@ export default async function (component) {
       item.dataset.id = id
       const fields = [
         { selector: '[data-center="icon"]', value: category, isIcon: true },
-        { selector: '[data-center="name"]', value: loc_name },
-        { selector: '[data-center="city"]', value: city },
-        { selector: '[data-center="zip-code"]', value: zip },
+        { selector: '[data-custom="center-name"]', value: loc_name },
+        { selector: '[data-custom="center-city"]', value: city },
+        { selector: '[data-custom="center-zip-code"]', value: zip },
         {
-          selector: '[data-center="where"]',
+          selector: '[data-centers="where"]',
           value: loc_main_url,
           isLink: true,
         },
-        { selector: '[data-center="accreditations"]', value: category },
+        { selector: '[data-custom="center-accreditations"]', value: category },
       ]
       fields.forEach(({ selector, value, isIcon, isLink }) => {
         const el = item.querySelector(selector)
         if (!value) {
           el?.parentElement?.remove()
-        } else {
-          el.textContent = value
-          if (isIcon) {
-            const prefix = 'https://go2-centers-worker.nahuel-eba.workers.dev/'
-            switch (value) {
-              case 'GO2 designated':
-                el.src = `${prefix}pin-go2.png`
-                break
-              case 'NCI designated':
-                el.src = `${prefix}pin-nci.png`
-                break
-              case 'COC':
-                el.src = `${prefix}pin-coc.png`
-                break
-
-              default:
-                el?.parentElement?.remove()
-                break
-            }
-          }
-          if (isLink) el.href = value
+          return
         }
+        if (isIcon) {
+          el.alt = value
+          const prefix = 'https://go2-centers-worker.nahuel-eba.workers.dev/'
+          switch (value) {
+            case 'GO2 designated':
+              el.src = `${prefix}pin-go2.png`
+              break
+            case 'NCI designated':
+              el.src = `${prefix}pin-nci.png`
+              break
+            case 'COC':
+              el.src = `${prefix}pin-coc.png`
+              break
+
+            default:
+              el?.parentElement?.remove()
+              break
+          }
+          return
+        }
+        if (isLink) el.href = value
+        el.textContent = value
       })
       item.addEventListener('click', () => {
         if (lat && lng) map.setView([lat, lng], 14, { animate: false })
