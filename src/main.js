@@ -3,6 +3,8 @@ const components = [
   {
     selector: "[data-component='centers']",
     importFn: () => import('./components/centers.js'),
+    selector: "[data-component='events']",
+    importFn: () => import('./components/events.js'),
   },
   // Add more components here
 ]
