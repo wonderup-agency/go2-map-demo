@@ -41,8 +41,8 @@ export default async function (component) {
 
     // Check if endDate is exactly one day after current date
     const oneDayInMs = 24 * 60 * 60 * 1000 // One day in milliseconds
-    if (endDateDay.getTime() >= currentDateDay.getTime() + oneDayInMs) {
-      event.parentElement.remove()
+    if (endDateDay.getTime() + oneDayInMs <= currentDateDay.getTime()) {
+      event.parentElement.remove();
       return
     }
 
