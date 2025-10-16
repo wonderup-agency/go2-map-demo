@@ -15,7 +15,8 @@ export default async function (component) {
     const timezoneString = event.dataset.timezone
 
     if (startDateString == '' || endDateString == '') {
-      event.parentElement.remove()
+      // event.parentElement.remove()
+      event.parentElement.setAttribute('data-delete', 'true')
       return
     }
 
@@ -42,7 +43,8 @@ export default async function (component) {
     // Check if endDate is exactly one day after current date
     const oneDayInMs = 24 * 60 * 60 * 1000 // One day in milliseconds
     if (endDateDay.getTime() + oneDayInMs <= currentDateDay.getTime()) {
-      event.parentElement.remove()
+      // event.parentElement.remove()
+      event.parentElement.setAttribute('data-delete', 'true')
       return
     }
 
@@ -94,4 +96,77 @@ export default async function (component) {
     const timeRange = `${startHour}:${startMinute}${startPeriod} - ${endHour}:${endMinute}${endPeriod}`
     timeEl.textContent = timeRange
   })
+
+  window.FinsweetAttributes ||= []
+  window.FinsweetAttributes.push([
+    'list',
+    (listInstances) => {
+      const citiesMap = new Map()
+      listInstances[0].items.value.forEach((item, i) => {
+        if (item.element.dataset.delete === 'true') {
+          listInstances[0].items.value = listInstances[0].items.value.filter(
+            (item) => {
+              return item.element.dataset.delete !== 'true'
+            }
+          )
+          return
+        }
+        // Collect city values (trimmed)
+        if (item.fields && item.fields.hasOwnProperty('city')) {
+          const raw = String(item.fields.city.value || '').trim()
+          if (!raw) return
+          const key = raw.toLowerCase()
+          if (!citiesMap.has(key)) {
+            citiesMap.set(key, raw) // preserve original casing for display
+          }
+        }
+      })
+
+      // Get unique cities and sort A-Z
+      const uniqueSortedCities = Array.from(citiesMap.values()).sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' })
+      )
+      populateSelectCities(uniqueSortedCities)
+    },
+  ])
+
+  const populateSelectCities = (citiesArr) => {
+    const selectCities = document.querySelector('[data-events="select-cities"]')
+    if (selectCities) {
+      citiesArr.forEach((city) => {
+        const option = document.createElement('option')
+        option.value = city
+        option.textContent = city
+        selectCities.appendChild(option)
+      })
+    }
+  }
 }
+
+//   function debounce(func, wait) {
+//     let timeout
+//     return function (...args) {
+//       clearTimeout(timeout)
+//       timeout = setTimeout(() => {
+//         func(...args)
+//       }, wait)
+//     }
+//   }
+
+//   let firstIteration = true;
+
+// Define the debounced callback ONCE outside the hook
+// const debouncedCallback = debounce(() => {
+// console.log('Last iteration:', listInstances[0].items.value)
+// listInstances[0].items.value[1].element.querySelector('[data-events="DD"]').textContent = "WOW 1"
+// }, 300)
+
+// Add the pagination hook
+// listInstances[0].addHook('filter', (items) => {
+//   console.log('Pagination hook called, items:', items)
+//   if(firstIteration) {
+//     debouncedCallback(items)
+//   }
+
+//   firstIteration = false;
+// })
