@@ -1,0 +1,2 @@
+function e(e){const t=e.dataset.campaignId??"FUNFTWMRGBN",n=e.querySelectorAll('input[name="donation-amount"][type="radio"]');n.length>0&&(n[0].checked=!0),e.addEventListener("submit",n=>{n.preventDefault();const a=new FormData(e),o=a.get("recurring")??"once";let r=a.get("donation-amount");r=Number(r?.replace(/\D/g,""))||25,FundraiseUp.openCheckout(t,{donation:{recurring:o,amount:r}})})}export{e as default};
+//# sourceMappingURL=donation-form-Da8Y4GSQ.js.map
