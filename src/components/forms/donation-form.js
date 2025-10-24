@@ -1,4 +1,4 @@
-import { comma } from "postcss/lib/list"
+import { comma } from 'postcss/lib/list'
 
 /**
  *
@@ -15,7 +15,7 @@ export default function (form) {
     amountRadios[0].checked = true
   }
 
-  const otherButton = form.querySelector("[data-donation-form='other']");
+  const otherButton = form.querySelector("[data-donation-form='other']")
 
   form.addEventListener('submit', (e) => {
     e.preventDefault()
@@ -34,7 +34,7 @@ export default function (form) {
     })
   })
 
-  otherButton.addEventListener("click", (e) => {
+  otherButton.addEventListener('click', (e) => {
     e.preventDefault()
     const formData = new FormData(form)
     const recurring = formData.get('recurring') ?? 'once'
