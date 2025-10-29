@@ -27,14 +27,19 @@ export default async function (component) {
       percentage: parseFloat(
         el.getAttribute('data-graphic-item1-percentage') || 15
       ),
-      url: el.getAttribute('data-graphic-item1-url') || '#',
+      url:
+        el.getAttribute('data-graphic-item1-url') ||
+        '/lung-cancer/types-of-lung-cancer/small-cell-lung-cancer',
     }
+    console.log(document.querySelector('[data-graphic-item1-url]'))
     const item2 = {
       label: el.getAttribute('data-graphic-item2-label') || 'Item 2',
       percentage: parseFloat(
         el.getAttribute('data-graphic-item2-percentage') || 85
       ),
-      url: el.getAttribute('data-graphic-item2-url') || '#',
+      url:
+        el.getAttribute('data-graphic-item2-url') ||
+        '/lung-cancer/types-of-lung-cancer/non-small-cell-lung-cancer',
     }
 
     const data = [
@@ -185,7 +190,7 @@ export default async function (component) {
       // Clickable labels
       series.labels.template.events.on('pointerdown', (ev) => {
         const url = ev.target.dataItem?.dataContext?.url
-        if (url) window.open(url, '_blank', 'noopener,noreferrer')
+        if (url) window.open(url, 'noopener,noreferrer')
       })
 
       // Data
