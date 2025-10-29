@@ -38,8 +38,10 @@
     "rollup-plugin-postcss": "^4.0.2"
   },
   "dependencies": {
+    "@amcharts/amcharts5": "^5.14.3",
     "leaflet": "^1.9.4",
     "list.js": "^2.3.1",
     "validator": "^13.15.20"
-  }
+  },
+  "type": "module"
 }

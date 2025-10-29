@@ -24,6 +24,14 @@ const components = [
     selector: "[data-component='volunteer-phone-buddy-form']",
     importFn: () => import('./components/forms/volunteer-phone-buddy.js'),
   },
+  {
+    selector: "[data-component='graphics-bars']",
+    importFn: () => import('./components/graphics/graphics-bars.js'),
+  },
+  {
+    selector: "[data-component='graphics-pies']",
+    importFn: () => import('./components/graphics/graphics-pies.js'),
+  },
   // Add more components here
 ]
 
