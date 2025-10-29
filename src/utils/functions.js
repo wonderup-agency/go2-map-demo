@@ -1,6 +1,6 @@
 /**
  * Serialize inputs under a root element into an object suitable for POSTing.
- * Handles types: checkbox, radio, text, date, email, hidden, number, range, tel, select
+ * Handles types: checkbox, radio, text, textarea, date, email, hidden, number, range, tel, select
  *
  * Usage:
  *   import { serializeInputs } from './utils/functions.js'
@@ -102,4 +102,147 @@ export function serializeInputs(root) {
   }
 
   return result
+}
+
+/**
+ * Watch a <select> element and insert/remove an "other" text field when a specific option is selected.
+ *
+ * @param {Object} options
+ * @param {string} options.selectId - ID of the <select> element to watch.
+ * @param {string|number} options.otherValue - Option value that should trigger the "other" field.
+ * @param {string} options.fieldName - name/id for the generated input.
+ * @param {string} options.labelName - label text for the generated input.
+ * @param {string} options.placeholder - placeholder text for the generated input.
+ */
+export function setupOtherFieldForSelect({
+  selectId,
+  otherValue,
+  fieldName,
+  labelName,
+  placeholder,
+}) {
+  const select = document.getElementById(selectId)
+  if (!select) {
+    console.error(`Select element with ID "${selectId}" not found.`)
+    return
+  }
+
+  const handler = () => {
+    const value = select.value
+    const existing = document.getElementById(fieldName)
+
+    if (value === otherValue.toString()) {
+      if (!existing) {
+        const newField = createTextField(fieldName, labelName, placeholder)
+        const wrapper = select.closest('.multi-form14_field-wrapper')
+        if (wrapper) {
+          wrapper.after(newField)
+        } else {
+          console.error(
+            `Wrapper ".multi-form14_field-wrapper" not found for select "${selectId}".`
+          )
+        }
+      }
+    } else {
+      if (existing) {
+        const otherWrapper = existing.closest('.multi-form14_field-wrapper')
+        if (otherWrapper) {
+          otherWrapper.remove()
+        }
+      }
+    }
+  }
+
+  select.addEventListener('change', handler)
+  handler() // Run initially to handle pre-selected value
+}
+
+/**
+ * Watch a checkbox (by name and value) and insert/remove an "other" text field when checked.
+ *
+ * @param {Object} options
+ * @param {string} options.checkboxGroup - name attribute of the checkbox group to query.
+ * @param {string|number} options.otherValue - checkbox value that should trigger the "other" field.
+ * @param {string} options.fieldName - name/id for the generated input.
+ * @param {string} options.labelName - label text for the generated input.
+ * @param {string} options.placeholder - placeholder text for the generated input.
+ */
+export function setupOtherFieldForCheckbox({
+  checkboxGroup,
+  otherValue,
+  fieldName,
+  labelName,
+  placeholder,
+}) {
+  const checkbox = document.querySelector(
+    `input[name="${checkboxGroup}"][value="${otherValue}"]`
+  )
+  if (!checkbox) {
+    console.error(
+      `Checkbox with name "${checkboxGroup}" and value "${otherValue}" not found.`
+    )
+    return
+  }
+
+  const handler = () => {
+    const existing = document.getElementById(fieldName)
+
+    if (checkbox.checked) {
+      if (!existing) {
+        const newField = createTextField(fieldName, labelName, placeholder)
+        const specificWrapper = checkbox.closest('.multi-step_checkbox-wrapper')
+        if (specificWrapper) {
+          specificWrapper.after(newField)
+        } else {
+          console.error(
+            `Wrapper ".multi-step_checkbox-wrapper" not found for checkbox with value "${otherValue}".`
+          )
+        }
+      }
+    } else {
+      if (existing) {
+        const otherWrapper = existing.closest('.multi-form14_field-wrapper')
+        if (otherWrapper) {
+          otherWrapper.remove()
+        }
+      }
+    }
+  }
+
+  checkbox.addEventListener('change', handler)
+  handler() // Run initially to handle pre-checked state
+}
+
+/**
+ * Create a DOM wrapper containing a label and text input used for "other" fields.
+ *
+ * @private
+ * @param {string} fieldName - id and name for the generated input.
+ * @param {string} labelName - text content for the label.
+ * @param {string} placeholder - placeholder text for the input.
+ * @returns {HTMLElement} wrapper element containing the label and input.
+ */
+function createTextField(fieldName, labelName, placeholder) {
+  const div = document.createElement('div')
+  div.className = 'multi-form14_field-wrapper'
+
+  const label = document.createElement('label')
+  label.htmlFor = fieldName
+  label.className = 'form_field-label'
+  label.textContent = labelName
+
+  const input = document.createElement('input')
+  input.className = 'form_input2 w-input'
+  input.maxLength = 256
+  input.name = fieldName
+  input.dataset.name = fieldName
+  input.placeholder = placeholder
+  input.type = 'text'
+  input.id = fieldName
+  input.required = true
+
+  div.appendChild(label)
+  div.appendChild(input)
+
+  return div
 }

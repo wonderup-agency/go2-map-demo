@@ -10,11 +10,19 @@ const components = [
   },
   {
     selector: "[data-component='donation-form']",
-    importFn: () => import('./components/forms/donation-form.js'),
+    importFn: () => import('./components/forms/donation.js'),
   },
   {
     selector: "[data-component='helpline-form']",
-    importFn: () => import('./components/forms/helpline-form.js'),
+    importFn: () => import('./components/forms/helpline.js'),
+  },
+  {
+    selector: "[data-component='phone-buddy-form']",
+    importFn: () => import('./components/forms/phone-buddy.js'),
+  },
+  {
+    selector: "[data-component='volunteer-phone-buddy-form']",
+    importFn: () => import('./components/forms/volunteer-phone-buddy.js'),
   },
   // Add more components here
 ]

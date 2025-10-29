@@ -1,4 +1,5 @@
 node_modules
 src/json/locations-src.json
-happyfox-custom-fields.json
+contact-custom-fields.json
+ticket-custom-fields.json
 TODO.TXT
