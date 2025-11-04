@@ -51,9 +51,7 @@ export function serializeInputs(root) {
         // multiple select elements sharing the same name -> array of values/arrays
         result[name] = nodes.map((n) => {
           if ((n.tagName || '').toLowerCase() === 'select') {
-            return n.multiple
-              ? Array.from(n.selectedOptions).map((o) => o.value)
-              : n.value
+            return n.multiple ? Array.from(n.selectedOptions).map((o) => o.value) : n.value
           }
           return n.value
         })
@@ -114,13 +112,7 @@ export function serializeInputs(root) {
  * @param {string} options.labelName - label text for the generated input.
  * @param {string} options.placeholder - placeholder text for the generated input.
  */
-export function setupOtherFieldForSelect({
-  selectId,
-  otherValue,
-  fieldName,
-  labelName,
-  placeholder,
-}) {
+export function setupOtherFieldForSelect({ selectId, otherValue, fieldName, labelName, placeholder }) {
   const select = document.getElementById(selectId)
   if (!select) {
     console.error(`Select element with ID "${selectId}" not found.`)
@@ -138,9 +130,7 @@ export function setupOtherFieldForSelect({
         if (wrapper) {
           wrapper.after(newField)
         } else {
-          console.error(
-            `Wrapper ".multi-form14_field-wrapper" not found for select "${selectId}".`
-          )
+          console.error(`Wrapper ".multi-form14_field-wrapper" not found for select "${selectId}".`)
         }
       }
     } else {
@@ -167,20 +157,10 @@ export function setupOtherFieldForSelect({
  * @param {string} options.labelName - label text for the generated input.
  * @param {string} options.placeholder - placeholder text for the generated input.
  */
-export function setupOtherFieldForCheckbox({
-  checkboxGroup,
-  otherValue,
-  fieldName,
-  labelName,
-  placeholder,
-}) {
-  const checkbox = document.querySelector(
-    `input[name="${checkboxGroup}"][value="${otherValue}"]`
-  )
+export function setupOtherFieldForCheckbox({ checkboxGroup, otherValue, fieldName, labelName, placeholder }) {
+  const checkbox = document.querySelector(`input[name="${checkboxGroup}"][value="${otherValue}"]`)
   if (!checkbox) {
-    console.error(
-      `Checkbox with name "${checkboxGroup}" and value "${otherValue}" not found.`
-    )
+    console.error(`Checkbox with name "${checkboxGroup}" and value "${otherValue}" not found.`)
     return
   }
 
@@ -194,9 +174,7 @@ export function setupOtherFieldForCheckbox({
         if (specificWrapper) {
           specificWrapper.after(newField)
         } else {
-          console.error(
-            `Wrapper ".multi-step_checkbox-wrapper" not found for checkbox with value "${otherValue}".`
-          )
+          console.error(`Wrapper ".multi-step_checkbox-wrapper" not found for checkbox with value "${otherValue}".`)
         }
       }
     } else {
@@ -245,4 +223,138 @@ function createTextField(fieldName, labelName, placeholder) {
   div.appendChild(input)
 
   return div
+}
+
+/**
+ * Remove any validation error container inside the provided step element.
+ *
+ * @param {HTMLElement} currentStepEl - Root element of the current step where errors may be shown.
+ * @returns {void}
+ */
+export function clearStepsErrors(currentStepEl) {
+  const errorContainer = currentStepEl.querySelector('.validation-errors')
+  if (errorContainer) {
+    errorContainer.remove()
+  }
+}
+
+/**
+ * Append validation error messages to the provided step element.
+ * Any existing error container is removed before appending the new one.
+ *
+ * @param {HTMLElement} currentStepEl - Root element of the current step where errors should be appended.
+ * @param {string[]} errors - Array of error message strings to display. If empty, no container is created.
+ * @returns {void}
+ */
+export function appendStepsErrors(currentStepEl, errors) {
+  // Remove any previous error container to avoid duplicates
+  const prev = currentStepEl.querySelector('.validation-errors')
+  if (prev) prev.remove()
+
+  if (errors.length > 0) {
+    const errDiv = document.createElement('div')
+    errDiv.className = 'validation-errors'
+    errDiv.style.color = 'red'
+    errDiv.style.marginTop = '1rem'
+
+    errors.forEach((msg) => {
+      const line = document.createElement('div')
+      line.textContent = msg
+      errDiv.appendChild(line)
+    })
+
+    currentStepEl.appendChild(errDiv)
+  }
+}
+
+/**
+ * Disable a button element and replace its visible text with a loading message.
+ * The function sets the button as disabled and adds a 'disabled' CSS class.
+ *
+ * @param {HTMLElement} btn - The button element to modify.
+ * @param {string} [loadingText='Please wait...'] - Text to display while loading.
+ * @returns {void}
+ */
+export function setButtonLoading(btn, loadingText = 'Please wait...') {
+  if (!btn) return
+  btn.disabled = true
+  btn.classList.add('disabled')
+  const textEl = btn.querySelector('.button_text') || btn.firstChild
+  if (textEl && textEl.textContent) {
+    textEl.textContent = loadingText
+  }
+}
+
+/**
+ * Restore a button's enabled state and reset its visible text.
+ * Removes the 'disabled' CSS class and ensures the button is enabled.
+ *
+ * @param {HTMLElement} btn - The button element to restore.
+ * @param {string} originalText - Text to restore on the button.
+ * @returns {void}
+ */
+export function resetButton(btn, originalText) {
+  if (!btn) return
+  btn.disabled = false
+  btn.classList.remove('disabled')
+  const textEl = btn.querySelector('.button_text') || btn.firstChild
+  if (textEl && textEl.textContent) {
+    textEl.textContent = originalText
+  }
+}
+
+/**
+ * Hide and mark a "failure" UI element as hidden for accessibility.
+ *
+ * @param {HTMLElement|null} failEl - Element that displays failure messages.
+ * @returns {void}
+ */
+export function hideFail(failEl) {
+  if (failEl) {
+    failEl.style.display = 'none'
+    failEl.setAttribute('aria-hidden', 'true')
+  }
+}
+
+/**
+ * Show a "failure" UI element, set accessibility attributes, and focus it.
+ *
+ * @param {HTMLElement|null} failEl - Element that displays failure messages.
+ * @returns {void}
+ */
+export function showFail(failEl) {
+  if (failEl) {
+    failEl.style.display = 'block'
+    failEl.setAttribute('aria-hidden', 'false')
+    failEl.setAttribute('tabindex', '-1')
+    setTimeout(() => failEl.focus(), 50)
+  }
+}
+
+/**
+ * Show a "success" UI element, set accessibility attributes, and focus it.
+ *
+ * @param {HTMLElement|null} successEl - Element that displays success messages.
+ * @returns {void}
+ */
+export function showSuccess(successEl) {
+  if (successEl) {
+    successEl.style.display = 'block'
+    successEl.setAttribute('aria-hidden', 'false')
+    successEl.setAttribute('tabindex', '-1')
+    setTimeout(() => successEl.focus(), 50)
+  }
+}
+
+/**
+ * Hide the provided form element visually and update accessibility attributes.
+ *
+ * @param {HTMLElement|null} formEl - The form element to hide.
+ * @returns {void}
+ */
+export function hideForm(formEl) {
+  if (formEl) {
+    formEl.classList.add('hide')
+    formEl.setAttribute('aria-hidden', 'true')
+  }
 }
