@@ -9,12 +9,8 @@ export default async function (component) {
   const centersList = component.querySelector("[data-centers='list']")
   const mapEl = component.querySelector("[data-centers='map']")
   const zipField = component.querySelector("[data-custom='centers-zip-field']")
-  const categoriesSelect = component.querySelector(
-    "[data-centers='categories-select']"
-  )
-  const itemTemplate = document
-    .querySelector('[data-centers="list-item"]')
-    .cloneNode(true)
+  const categoriesSelect = component.querySelector("[data-centers='categories-select']")
+  const itemTemplate = document.querySelector('[data-centers="list-item"]').cloneNode(true)
 
   // Initialize map
   const map = L.map(mapEl).setView([37.5, -95.7], 4) // Centered on US
@@ -56,9 +52,7 @@ export default async function (component) {
   // Fetch health centers data
   let healthCenters = []
   try {
-    const response = await fetch(
-      'https://go2-centers-worker.nahuel-eba.workers.dev/centers'
-    )
+    const response = await fetch('https://go2-centers-worker.nahuel-eba.workers.dev/centers')
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
     healthCenters = Object.values(await response.json())
   } catch (error) {
@@ -81,19 +75,8 @@ export default async function (component) {
     const bounds = []
 
     filtered.forEach((center) => {
-      const {
-        id,
-        category,
-        lat,
-        lng,
-        loc_name,
-        loc_main_address,
-        city,
-        zip,
-        loc_image,
-        loc_main_phone,
-        loc_main_url,
-      } = center
+      const { id, category, lat, lng, loc_name, loc_main_address, city, zip, loc_image, loc_main_phone, loc_main_url } =
+        center
 
       const item = itemTemplate.cloneNode(true)
       item.dataset.id = id
@@ -157,18 +140,14 @@ export default async function (component) {
       const markerIcon =
         iconConfig[category] ||
         L.icon({
-          iconUrl:
-            'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-          shadowUrl:
-            'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
           iconSize: [52, 42],
           iconAnchor: [26, 42],
           popupAnchor: [0, -35],
         })
 
-      const marker = L.marker([lat, lng], { icon: markerIcon })
-        .addTo(map)
-        .bindPopup(popupContent)
+      const marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map).bindPopup(popupContent)
       markers.push(marker)
       bounds.push([lat, lng])
     })

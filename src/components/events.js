@@ -29,11 +29,7 @@ export default async function (component) {
     const utcCurrentDate = new Date(now.toISOString())
 
     // Truncate to day for comparison (ignoring time)
-    const endDateDay = new Date(
-      utcEndDate.getUTCFullYear(),
-      utcEndDate.getUTCMonth(),
-      utcEndDate.getUTCDate()
-    )
+    const endDateDay = new Date(utcEndDate.getUTCFullYear(), utcEndDate.getUTCMonth(), utcEndDate.getUTCDate())
     const currentDateDay = new Date(
       utcCurrentDate.getUTCFullYear(),
       utcCurrentDate.getUTCMonth(),
@@ -80,17 +76,11 @@ export default async function (component) {
 
     // Extract hour, minute, and period (AM/PM)
     const startHour = startTimeParts.find((part) => part.type === 'hour').value
-    const startMinute = startTimeParts.find(
-      (part) => part.type === 'minute'
-    ).value
-    const startPeriod = startTimeParts.find(
-      (part) => part.type === 'dayPeriod'
-    ).value
+    const startMinute = startTimeParts.find((part) => part.type === 'minute').value
+    const startPeriod = startTimeParts.find((part) => part.type === 'dayPeriod').value
     const endHour = endTimeParts.find((part) => part.type === 'hour').value
     const endMinute = endTimeParts.find((part) => part.type === 'minute').value
-    const endPeriod = endTimeParts.find(
-      (part) => part.type === 'dayPeriod'
-    ).value
+    const endPeriod = endTimeParts.find((part) => part.type === 'dayPeriod').value
 
     // Combine into "HH:MMAM - HH:MMPM" format
     const timeRange = `${startHour}:${startMinute}${startPeriod} - ${endHour}:${endMinute}${endPeriod}`
@@ -104,11 +94,9 @@ export default async function (component) {
       const citiesMap = new Map()
       listInstances[0].items.value.forEach((item, i) => {
         if (item.element.dataset.delete === 'true') {
-          listInstances[0].items.value = listInstances[0].items.value.filter(
-            (item) => {
-              return item.element.dataset.delete !== 'true'
-            }
-          )
+          listInstances[0].items.value = listInstances[0].items.value.filter((item) => {
+            return item.element.dataset.delete !== 'true'
+          })
           return
         }
         // Collect city values (trimmed)

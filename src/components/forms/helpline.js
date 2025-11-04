@@ -5,13 +5,9 @@ import { serializeInputs } from '../../utils/functions'
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
 export default function (component) {
-  const webhookAddress =
-    component.dataset.webhook ||
-    'https://hook.us2.make.com/x3fm8t3nor5poc4ij7purslvicjo9sxr'
+  const webhookAddress = component.dataset.webhook || 'https://hook.us2.make.com/x3fm8t3nor5poc4ij7purslvicjo9sxr'
   const steps = component.querySelectorAll('[data-form="step"]')
-  const ticketIdField = component.querySelector(
-    '[data-helpline-form="ticket-id-field"]'
-  )
+  const ticketIdField = component.querySelector('[data-helpline-form="ticket-id-field"]')
   const nextButton = component.querySelector('[data-form="next-btn"]')
   const nextButtonInitialText = nextButton.firstChild.textContent
 

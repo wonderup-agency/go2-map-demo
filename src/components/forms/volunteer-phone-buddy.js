@@ -1,21 +1,13 @@
-import {
-  serializeInputs,
-  setupOtherFieldForSelect,
-  setupOtherFieldForCheckbox,
-} from '../../utils/functions'
+import { serializeInputs, setupOtherFieldForSelect, setupOtherFieldForCheckbox } from '../../utils/functions'
 
 /**
  * Handles form submission for a multi-step form component.
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
 export default function (component) {
-  const webhookAddress =
-    component.dataset.webhook ||
-    'https://hook.us2.make.com/vpc32gcapub110y6fye9o46a8nnlw7fq'
+  const webhookAddress = component.dataset.webhook || 'https://hook.us2.make.com/vpc32gcapub110y6fye9o46a8nnlw7fq'
   const steps = component.querySelectorAll('[data-form="step"]')
-  const ticketIdField = component.querySelector(
-    '[data-volunteer-phone-buddy-form="ticket-id-field"]'
-  )
+  const ticketIdField = component.querySelector('[data-volunteer-phone-buddy-form="ticket-id-field"]')
 
   const nextButton = component.querySelector('[data-form="next-btn"]')
   const nextButtonInitialText = nextButton.firstChild.textContent
@@ -164,9 +156,7 @@ export default function (component) {
         })
         // Update the message if there's anything to append
         if (appended) {
-          message = message.trim()
-            ? `${message.trim()}.\n${appended.trim()}`
-            : appended.trim()
+          message = message.trim() ? `${message.trim()}.\n${appended.trim()}` : appended.trim()
         }
         secondStepData['Interest-in-becoming-a-Phone-Buddy'] = message
 

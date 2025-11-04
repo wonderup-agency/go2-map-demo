@@ -8,9 +8,7 @@ export default function (form) {
   const campaignId = form.dataset.campaignId ?? 'FUNFTWMRGBN'
 
   // Autoselect the first radio button for donation-amount if available
-  const amountRadios = form.querySelectorAll(
-    'input[name="donation-amount"][type="radio"]'
-  )
+  const amountRadios = form.querySelectorAll('input[name="donation-amount"][type="radio"]')
   if (amountRadios.length > 0) {
     amountRadios[0].checked = true
   }
