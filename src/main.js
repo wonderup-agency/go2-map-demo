@@ -40,7 +40,6 @@ const components = [
     selector: "[data-component='smoking-calculator']",
     importFn: () => import('./components/smokingCalculator.js'),
   },
-  
   // Add more components here
 ]
 
