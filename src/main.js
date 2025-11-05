@@ -32,6 +32,15 @@ const components = [
     selector: "[data-component='graphics-pies']",
     importFn: () => import('./components/graphics/graphics-pies.js'),
   },
+  {
+    selector: "[data-component='breadcrumbs']",
+    importFn: () => import('./components/breadcrumbs.js'),
+  },
+  {
+    selector: "[data-component='smoking-calculator']",
+    importFn: () => import('./components/smokingCalculator.js'),
+  },
+  
   // Add more components here
 ]
 

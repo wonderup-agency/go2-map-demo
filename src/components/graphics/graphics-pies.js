@@ -7,8 +7,6 @@ import am5themes_Animated from '@amcharts/amcharts5/themes/Animated'
  * @param {HTMLElement} component
  */
 export default async function (component) {
-  console.log('DOM fully loaded and parsed')
-
   document.querySelectorAll('[data-graphic]').forEach((el) => {
     const chartType = el.getAttribute('data-graphic-type') || 'pie'
 
