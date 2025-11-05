@@ -12,32 +12,21 @@ export default async function (component) {
 
     // Colors
     const labelColor = el.getAttribute('data-graphic-label-color') || '#2C3495'
-    const sliceBorderColor =
-      el.getAttribute('data-graphic-slice-border-color') || '#F8F9FB'
-    const sliceFillColor1 =
-      el.getAttribute('data-graphic-slice-fill-color1') || '#6F4B86'
-    const sliceFillColor2 =
-      el.getAttribute('data-graphic-slice-fill-color2') || '#B9DDE6'
+    const sliceBorderColor = el.getAttribute('data-graphic-slice-border-color') || '#F8F9FB'
+    const sliceFillColor1 = el.getAttribute('data-graphic-slice-fill-color1') || '#6F4B86'
+    const sliceFillColor2 = el.getAttribute('data-graphic-slice-fill-color2') || '#B9DDE6'
 
     // Items
     const item1 = {
       label: el.getAttribute('data-graphic-item1-label') || 'Item 1',
-      percentage: parseFloat(
-        el.getAttribute('data-graphic-item1-percentage') || 15
-      ),
-      url:
-        el.getAttribute('data-graphic-item1-url') ||
-        '/lung-cancer/types-of-lung-cancer/small-cell-lung-cancer',
+      percentage: parseFloat(el.getAttribute('data-graphic-item1-percentage') || 15),
+      url: el.getAttribute('data-graphic-item1-url') || '/lung-cancer/types-of-lung-cancer/small-cell-lung-cancer',
     }
     console.log(document.querySelector('[data-graphic-item1-url]'))
     const item2 = {
       label: el.getAttribute('data-graphic-item2-label') || 'Item 2',
-      percentage: parseFloat(
-        el.getAttribute('data-graphic-item2-percentage') || 85
-      ),
-      url:
-        el.getAttribute('data-graphic-item2-url') ||
-        '/lung-cancer/types-of-lung-cancer/non-small-cell-lung-cancer',
+      percentage: parseFloat(el.getAttribute('data-graphic-item2-percentage') || 85),
+      url: el.getAttribute('data-graphic-item2-url') || '/lung-cancer/types-of-lung-cancer/non-small-cell-lung-cancer',
     }
 
     const data = [
@@ -56,13 +45,7 @@ export default async function (component) {
     }
   })
 
-  function createDynamicPieChart({
-    element,
-    labelColor,
-    sliceBorderColor,
-    sliceFillColors,
-    data,
-  }) {
+  function createDynamicPieChart({ element, labelColor, sliceBorderColor, sliceFillColors, data }) {
     am5.ready(function () {
       const root = am5.Root.new(element)
       root.setThemes([am5themes_Animated.new(root)])
@@ -73,8 +56,7 @@ export default async function (component) {
       const COLOR_SLICE_1 = am5.color(am5.Color.fromString(sliceFillColors[0]))
       const COLOR_SLICE_2 = am5.color(am5.Color.fromString(sliceFillColors[1]))
 
-      const REM =
-        parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      const REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
       const OFFSET = Math.round(2.5 * REM)
 
       // Chart container
@@ -108,9 +90,7 @@ export default async function (component) {
         tooltipText: '',
       })
       series.slices.template.set('toggleKey', undefined)
-      series.slices.template.events.on('pointerdown', (ev) =>
-        ev.event?.stopPropagation?.()
-      )
+      series.slices.template.events.on('pointerdown', (ev) => ev.event?.stopPropagation?.())
 
       // Labels
       series.labelsContainer.setAll({ layer: 100 })

@@ -2,49 +2,45 @@
  *
  * @param {HTMLElement} component
  */
-async function events (component) {
-  const events = component.querySelectorAll('[data-events="event-element"]');
+async function events(component) {
+  const events = component.querySelectorAll('[data-events="event-element"]')
 
   events.forEach((event, i) => {
-    const dayEl = event.querySelector('[data-events="DD"]');
-    const monthYearEl = event.querySelector('[data-events="MMM-YYYY"]');
-    const timeEl = event.querySelector('[data-custom="start-end-date"]');
+    const dayEl = event.querySelector('[data-events="DD"]')
+    const monthYearEl = event.querySelector('[data-events="MMM-YYYY"]')
+    const timeEl = event.querySelector('[data-custom="start-end-date"]')
 
-    const startDateString = event.dataset.startDate;
-    const endDateString = event.dataset.endDate;
-    const timezoneString = event.dataset.timezone;
+    const startDateString = event.dataset.startDate
+    const endDateString = event.dataset.endDate
+    const timezoneString = event.dataset.timezone
 
     if (startDateString == '' || endDateString == '') {
       // event.parentElement.remove()
-      event.parentElement.setAttribute('data-delete', 'true');
+      event.parentElement.setAttribute('data-delete', 'true')
       return
     }
 
-    const startDate = new Date(startDateString);
-    const endDate = new Date(endDateString);
+    const startDate = new Date(startDateString)
+    const endDate = new Date(endDateString)
 
     // Check if endDate is one day older than the current date in UTC
-    const now = new Date(); // Current date/time in UTC
-    const utcEndDate = new Date(endDate.toISOString());
-    const utcCurrentDate = new Date(now.toISOString());
+    const now = new Date() // Current date/time in UTC
+    const utcEndDate = new Date(endDate.toISOString())
+    const utcCurrentDate = new Date(now.toISOString())
 
     // Truncate to day for comparison (ignoring time)
-    const endDateDay = new Date(
-      utcEndDate.getUTCFullYear(),
-      utcEndDate.getUTCMonth(),
-      utcEndDate.getUTCDate()
-    );
+    const endDateDay = new Date(utcEndDate.getUTCFullYear(), utcEndDate.getUTCMonth(), utcEndDate.getUTCDate())
     const currentDateDay = new Date(
       utcCurrentDate.getUTCFullYear(),
       utcCurrentDate.getUTCMonth(),
       utcCurrentDate.getUTCDate()
-    );
+    )
 
     // Check if endDate is exactly one day after current date
-    const oneDayInMs = 24 * 60 * 60 * 1000; // One day in milliseconds
+    const oneDayInMs = 24 * 60 * 60 * 1000 // One day in milliseconds
     if (endDateDay.getTime() + oneDayInMs <= currentDateDay.getTime()) {
       // event.parentElement.remove()
-      event.parentElement.setAttribute('data-delete', 'true');
+      event.parentElement.setAttribute('data-delete', 'true')
       return
     }
 
@@ -54,16 +50,16 @@ async function events (component) {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
-    };
-    const dateFormatter = new Intl.DateTimeFormat('en-US', dateOptions);
-    const startParts = dateFormatter.formatToParts(startDate);
+    }
+    const dateFormatter = new Intl.DateTimeFormat('en-US', dateOptions)
+    const startParts = dateFormatter.formatToParts(startDate)
 
-    const day = startParts.find((part) => part.type === 'day').value;
-    const month = startParts.find((part) => part.type === 'month').value;
-    const year = startParts.find((part) => part.type === 'year').value;
+    const day = startParts.find((part) => part.type === 'day').value
+    const month = startParts.find((part) => part.type === 'month').value
+    const year = startParts.find((part) => part.type === 'year').value
 
-    dayEl.textContent = day;
-    monthYearEl.textContent = `${month} ${year}`;
+    dayEl.textContent = day
+    monthYearEl.textContent = `${month} ${year}`
 
     // Format time (HH:MM AM/PM)
     const timeOptions = {
@@ -71,76 +67,68 @@ async function events (component) {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-    };
-    const timeFormatter = new Intl.DateTimeFormat('en-US', timeOptions);
+    }
+    const timeFormatter = new Intl.DateTimeFormat('en-US', timeOptions)
 
     // Format start and end times
-    const startTimeParts = timeFormatter.formatToParts(startDate);
-    const endTimeParts = timeFormatter.formatToParts(endDate);
+    const startTimeParts = timeFormatter.formatToParts(startDate)
+    const endTimeParts = timeFormatter.formatToParts(endDate)
 
     // Extract hour, minute, and period (AM/PM)
-    const startHour = startTimeParts.find((part) => part.type === 'hour').value;
-    const startMinute = startTimeParts.find(
-      (part) => part.type === 'minute'
-    ).value;
-    const startPeriod = startTimeParts.find(
-      (part) => part.type === 'dayPeriod'
-    ).value;
-    const endHour = endTimeParts.find((part) => part.type === 'hour').value;
-    const endMinute = endTimeParts.find((part) => part.type === 'minute').value;
-    const endPeriod = endTimeParts.find(
-      (part) => part.type === 'dayPeriod'
-    ).value;
+    const startHour = startTimeParts.find((part) => part.type === 'hour').value
+    const startMinute = startTimeParts.find((part) => part.type === 'minute').value
+    const startPeriod = startTimeParts.find((part) => part.type === 'dayPeriod').value
+    const endHour = endTimeParts.find((part) => part.type === 'hour').value
+    const endMinute = endTimeParts.find((part) => part.type === 'minute').value
+    const endPeriod = endTimeParts.find((part) => part.type === 'dayPeriod').value
 
     // Combine into "HH:MMAM - HH:MMPM" format
-    const timeRange = `${startHour}:${startMinute}${startPeriod} - ${endHour}:${endMinute}${endPeriod}`;
-    timeEl.textContent = timeRange;
-  });
+    const timeRange = `${startHour}:${startMinute}${startPeriod} - ${endHour}:${endMinute}${endPeriod}`
+    timeEl.textContent = timeRange
+  })
 
-  window.FinsweetAttributes ||= [];
+  window.FinsweetAttributes ||= []
   window.FinsweetAttributes.push([
     'list',
     (listInstances) => {
-      const citiesMap = new Map();
+      const citiesMap = new Map()
       listInstances[0].items.value.forEach((item, i) => {
         if (item.element.dataset.delete === 'true') {
-          listInstances[0].items.value = listInstances[0].items.value.filter(
-            (item) => {
-              return item.element.dataset.delete !== 'true'
-            }
-          );
+          listInstances[0].items.value = listInstances[0].items.value.filter((item) => {
+            return item.element.dataset.delete !== 'true'
+          })
           return
         }
         // Collect city values (trimmed)
         if (item.fields && item.fields.hasOwnProperty('city')) {
-          const raw = String(item.fields.city.value || '').trim();
+          const raw = String(item.fields.city.value || '').trim()
           if (!raw) return
-          const key = raw.toLowerCase();
+          const key = raw.toLowerCase()
           if (!citiesMap.has(key)) {
-            citiesMap.set(key, raw); // preserve original casing for display
+            citiesMap.set(key, raw) // preserve original casing for display
           }
         }
-      });
+      })
 
       // Get unique cities and sort A-Z
       const uniqueSortedCities = Array.from(citiesMap.values()).sort((a, b) =>
         a.localeCompare(b, undefined, { sensitivity: 'base' })
-      );
-      populateSelectCities(uniqueSortedCities);
+      )
+      populateSelectCities(uniqueSortedCities)
     },
-  ]);
+  ])
 
   const populateSelectCities = (citiesArr) => {
-    const selectCities = document.querySelector('[data-events="select-cities"]');
+    const selectCities = document.querySelector('[data-events="select-cities"]')
     if (selectCities) {
       citiesArr.forEach((city) => {
-        const option = document.createElement('option');
-        option.value = city;
-        option.textContent = city;
-        selectCities.appendChild(option);
-      });
+        const option = document.createElement('option')
+        option.value = city
+        option.textContent = city
+        selectCities.appendChild(option)
+      })
     }
-  };
+  }
 }
 
 //   function debounce(func, wait) {
@@ -171,5 +159,5 @@ async function events (component) {
 //   firstIteration = false;
 // })
 
-export { events as default };
+export { events as default }
 //# sourceMappingURL=events-ClvccICb.js.map

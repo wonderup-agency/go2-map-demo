@@ -12,9 +12,7 @@ export default async function (component) {
       root.setThemes([am5themes_Animated.new(root)])
 
       // Colors
-      const BACKGROUND = am5.color(
-        el.dataset.graphicBackgroundColor || '#1B2155'
-      )
+      const BACKGROUND = am5.color(el.dataset.graphicBackgroundColor || '#1B2155')
       const BAR_COLOR = am5.color(el.dataset.graphicBarColor || '#B9DDE6')
       const TEXT_COLOR = am5.color(el.dataset.graphicTextColor || '#FFFFFF')
       const BADGE_BG = am5.color(el.dataset.graphicBadgeBg || '#2C3495')
