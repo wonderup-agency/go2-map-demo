@@ -1,24 +1,22 @@
 import {
-  serializeInputs,
-  setupOtherFieldForSelect,
-  setupOtherFieldForCheckbox,
-  clearStepsErrors,
-  appendStepsErrors,
-  setButtonLoading,
-  resetButton,
-  hideFail,
-  showFail,
-  showSuccess,
-  hideForm,
-} from '../../utils/functions'
-
-import validator from 'validator'
+  h as hideFail,
+  s as serializeInputs,
+  v as validator,
+  c as clearStepsErrors,
+  a as appendStepsErrors,
+  b as setButtonLoading,
+  d as showFail,
+  r as resetButton,
+  e as hideForm,
+  f as showSuccess,
+} from './index-Bu_cWeM4.js'
+import './main-Bc2F5P-N.js'
 
 /**
  * Handles form submission for a multi-step form component.
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
-export default function (component) {
+function helpline(component) {
   const webhookAddress = component.dataset.webhook || 'https://hook.us2.make.com/x3fm8t3nor5poc4ij7purslvicjo9sxr'
   const steps = Array.from(component.querySelectorAll('[data-form="step"]'))
   const ticketIdField = component.querySelector('[data-helpline-form="ticket-id-field"]')
@@ -77,11 +75,6 @@ export default function (component) {
           if (!validator.isMobilePhone(stepInputsData['HelpLine-Phone'] || '')) {
             errors.push('Enter a valid phone number (digits only, include area code)')
           }
-          break
-
-        // Add more cases as needed for other steps
-
-        default:
           break
       }
 
@@ -362,3 +355,6 @@ export default function (component) {
     true
   )
 }
+
+export { helpline as default }
+//# sourceMappingURL=helpline-BByk3rIX.js.map

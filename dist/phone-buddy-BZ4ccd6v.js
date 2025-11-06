@@ -1,33 +1,27 @@
 import {
-  serializeInputs,
-  setupOtherFieldForSelect,
-  setupOtherFieldForCheckbox,
-  clearStepsErrors,
-  appendStepsErrors,
-  setButtonLoading,
-  resetButton,
-  hideFail,
-  showFail,
-  showSuccess,
-  hideForm,
-} from '../../utils/functions'
-
-import validator from 'validator'
+  g as setupOtherFieldForSelect,
+  i as setupOtherFieldForCheckbox,
+  h as hideFail,
+  s as serializeInputs,
+  v as validator,
+  c as clearStepsErrors,
+  a as appendStepsErrors,
+  b as setButtonLoading,
+  d as showFail,
+  r as resetButton,
+  e as hideForm,
+  f as showSuccess,
+} from './index-Bu_cWeM4.js'
+import './main-Bc2F5P-N.js'
 
 /**
  * Handles form submission for a multi-step form component.
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
-export default function (component) {
-  const webhookAddress = component.dataset.webhook || 'https://hook.us2.make.com/vpc32gcapub110y6fye9o46a8nnlw7fq'
+function phoneBuddy(component) {
+  const webhookAddress = component.dataset.webhook || 'https://hook.us2.make.com/kkvr63k2dtf7sgpx5n2alylvmgf2qvd5'
   const steps = Array.from(component.querySelectorAll('[data-form="step"]'))
-  const ticketIdField = component.querySelector('[data-volunteer-phone-buddy-form="ticket-id-field"]')
-
-  const nextButton = component.querySelector('[data-form="next-btn"]')
-  const nextButtonInitialText = nextButton.firstChild.textContent
-
-  const submitButton = component.querySelector('[data-form="submit-btn"]')
-  const submitButtonInitialText = submitButton.firstChild.textContent
+  const ticketIdField = component.querySelector('[data-phone-buddy-form="ticket-id-field"]')
 
   const successEl = component.querySelector('.w-form-done')
   const failEl = component.querySelector('.w-form-fail')
@@ -39,7 +33,7 @@ export default function (component) {
   }
 
   setupOtherFieldForSelect({
-    selectId: 'Volunteer-Cancer-type',
+    selectId: 'Cancer-type',
     otherValue: 557,
     fieldName: 'Other-cancer-type',
     labelName: 'Specify other type of lung cancer',
@@ -47,17 +41,17 @@ export default function (component) {
   })
 
   setupOtherFieldForSelect({
-    selectId: 'Volunteer-How-did-you-heard-about-us',
+    selectId: 'How-did-you-heard-about-us',
     otherValue: 98,
-    fieldName: 'Volunteer-Other-way-of-hearing-about-GO2',
+    fieldName: 'Other-way-of-hearing-about-GO2',
     labelName: 'Describe other way of hearing about GO2',
     placeholder: 'Specify here',
   })
 
   setupOtherFieldForCheckbox({
-    checkboxGroup: 'Volunteer-Phone-Buddy-Treatment',
+    checkboxGroup: 'Phone-Buddy-Treatment',
     otherValue: 8,
-    fieldName: 'Volunteer-Other-treatment',
+    fieldName: 'Other-treatment',
     labelName: 'Specify treatment',
     placeholder: 'Specify here',
   })
@@ -98,20 +92,18 @@ export default function (component) {
       switch (currentStepIndex) {
         case 0:
           // First step validations
-          if (validator.isEmpty(stepInputsData['Volunteer-Phone-Buddy-Name'] || '')) {
-            errors.push('Enter your full name.')
+          if (validator.isEmpty(stepInputsData['Phone-Buddy-First-Name'] || '')) {
+            errors.push('Enter your first name.')
           }
-          if (!validator.isEmail(stepInputsData['Volunteer-Phone-Buddy-Email'] || '')) {
+          if (validator.isEmpty(stepInputsData['Phone-Buddy-Last-Name'] || '')) {
+            errors.push('Enter your last name.')
+          }
+          if (!validator.isEmail(stepInputsData['Phone-Buddy-Email'] || '')) {
             errors.push('Enter a valid email address (example: name@email.com)')
           }
-          if (!validator.isMobilePhone(stepInputsData['Volunteer-Phone-Buddy-Phone'] || '')) {
+          if (!validator.isMobilePhone(stepInputsData['Phone-Buddy-Phone'] || '')) {
             errors.push('Enter a valid phone number (digits only, include area code)')
           }
-          break
-
-        // Add more cases as needed for other steps
-
-        default:
           break
       }
 
@@ -188,7 +180,7 @@ export default function (component) {
       const errors = []
 
       // Submit step validations
-      if (!validator.isPostalCode(String(submitInputsData?.['Volunteer-Phone-Buddy-Zip-Code'] || ''), 'any')) {
+      if (!validator.isPostalCode(String(submitInputsData?.['Phone-Buddy-Zip-Code'] || ''), 'any')) {
         errors.push('Enter a valid ZIP or postal code.')
       }
 
@@ -196,16 +188,13 @@ export default function (component) {
         errors.push('Tell us what type of cancer you have.')
       }
 
-      if (
-        'Volunteer-Other-treatment' in submitInputsData &&
-        validator.isEmpty(submitInputsData['Volunteer-Other-treatment'] || '')
-      ) {
+      if ('Other-treatment' in submitInputsData && validator.isEmpty(submitInputsData['Other-treatment'] || '')) {
         errors.push('Specify the treatment you received.')
       }
 
       if (
-        'Volunteer-Other-way-of-hearing-about-GO2' in submitInputsData &&
-        validator.isEmpty(submitInputsData['Volunteer-Other-way-of-hearing-about-GO2'] || '')
+        'Other-way-of-hearing-about-GO2' in submitInputsData &&
+        validator.isEmpty(submitInputsData['Other-way-of-hearing-about-GO2'] || '')
       ) {
         errors.push('Describe how you heard about GO2.')
       }
@@ -227,16 +216,16 @@ export default function (component) {
       submitInputsData['ticket-id'] = ticketIdField.value
 
       // Modify message to contain information about: Phone-Buddy-Treatment, Other-treatment, How-did-you-heard-about-us, and Other-way-of-hearing-about-GO2
-      let message = submitInputsData['Interest-in-becoming-a-Phone-Buddy'] || ''
+      let message = submitInputsData['Phone-Buddy-Message'] || ''
       const fieldsToAppend = [
-        { key: 'Volunteer-Phone-Buddy-Treatment', label: 'Treatment' },
-        { key: 'Volunteer-Other-treatment', label: 'Other treatment' },
+        { key: 'Phone-Buddy-Treatment', label: 'Treatment' },
+        { key: 'Other-treatment', label: 'Other treatment' },
         {
-          key: 'Volunteer-How-did-you-heard-about-us',
+          key: 'How-did-you-heard-about-us',
           label: 'How did you hear about GO2?',
         },
         {
-          key: 'Volunteer-Other-way-of-hearing-about-GO2',
+          key: 'Other-way-of-hearing-about-GO2',
           label: 'Other way of hearing about GO2',
         },
       ]
@@ -262,7 +251,7 @@ export default function (component) {
       if (appended) {
         message = message.trim() ? `${message.trim()}.<br>${appended.trim()}` : appended.trim()
       }
-      submitInputsData['Interest-in-becoming-a-Phone-Buddy'] = message
+      submitInputsData['Phone-Buddy-Message'] = message
 
       // Log final submit data for debugging
       console.log('Final submit data (with modified message):', submitInputsData)
@@ -290,3 +279,6 @@ export default function (component) {
     }
   })
 }
+
+export { phoneBuddy as default }
+//# sourceMappingURL=phone-buddy-BZ4ccd6v.js.map

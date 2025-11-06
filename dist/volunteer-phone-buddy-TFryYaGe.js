@@ -1,33 +1,33 @@
 import {
-  serializeInputs,
-  setupOtherFieldForSelect,
-  setupOtherFieldForCheckbox,
-  clearStepsErrors,
-  appendStepsErrors,
-  setButtonLoading,
-  resetButton,
-  hideFail,
-  showFail,
-  showSuccess,
-  hideForm,
-} from '../../utils/functions'
-
-import validator from 'validator'
+  g as setupOtherFieldForSelect,
+  i as setupOtherFieldForCheckbox,
+  h as hideFail,
+  s as serializeInputs,
+  v as validator,
+  c as clearStepsErrors,
+  a as appendStepsErrors,
+  b as setButtonLoading,
+  d as showFail,
+  r as resetButton,
+  e as hideForm,
+  f as showSuccess,
+} from './index-Bu_cWeM4.js'
+import './main-Bc2F5P-N.js'
 
 /**
  * Handles form submission for a multi-step form component.
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
-export default function (component) {
+function volunteerPhoneBuddy(component) {
   const webhookAddress = component.dataset.webhook || 'https://hook.us2.make.com/vpc32gcapub110y6fye9o46a8nnlw7fq'
   const steps = Array.from(component.querySelectorAll('[data-form="step"]'))
   const ticketIdField = component.querySelector('[data-volunteer-phone-buddy-form="ticket-id-field"]')
 
   const nextButton = component.querySelector('[data-form="next-btn"]')
-  const nextButtonInitialText = nextButton.firstChild.textContent
+  nextButton.firstChild.textContent
 
   const submitButton = component.querySelector('[data-form="submit-btn"]')
-  const submitButtonInitialText = submitButton.firstChild.textContent
+  submitButton.firstChild.textContent
 
   const successEl = component.querySelector('.w-form-done')
   const failEl = component.querySelector('.w-form-fail')
@@ -107,11 +107,6 @@ export default function (component) {
           if (!validator.isMobilePhone(stepInputsData['Volunteer-Phone-Buddy-Phone'] || '')) {
             errors.push('Enter a valid phone number (digits only, include area code)')
           }
-          break
-
-        // Add more cases as needed for other steps
-
-        default:
           break
       }
 
@@ -290,3 +285,6 @@ export default function (component) {
     }
   })
 }
+
+export { volunteerPhoneBuddy as default }
+//# sourceMappingURL=volunteer-phone-buddy-TFryYaGe.js.map
