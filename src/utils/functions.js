@@ -106,22 +106,28 @@ export function serializeInputs(root) {
  * Watch a <select> element and insert/remove an "other" text field when a specific option is selected.
  *
  * @param {Object} options
- * @param {string} options.selectId - ID of the <select> element to watch.
- * @param {string|number} options.otherValue - Option value that should trigger the "other" field.
- * @param {string} options.fieldName - name/id for the generated input.
- * @param {string} options.labelName - label text for the generated input.
- * @param {string} options.placeholder - placeholder text for the generated input.
+ * @param {HTMLElement} options.context - Root element to use as context for queries
+ * @param {string} options.selectId - ID of the <select> element to watch
+ * @param {string|number} options.otherValue - Option value that should trigger the "other" field
+ * @param {string} options.fieldName - name/id for the generated input
+ * @param {string} options.labelName - label text for the generated input
+ * @param {string} options.placeholder - placeholder text for the generated input
  */
-export function setupOtherFieldForSelect({ selectId, otherValue, fieldName, labelName, placeholder }) {
-  const select = document.getElementById(selectId)
+export function setupOtherFieldForSelect({ context, selectId, otherValue, fieldName, labelName, placeholder }) {
+  if (!context || !(context instanceof HTMLElement)) {
+    console.error('A valid HTML element must be provided as context')
+    return
+  }
+
+  const select = context.querySelector(`#${selectId}`)
   if (!select) {
-    console.error(`Select element with ID "${selectId}" not found.`)
+    console.error(`Select element with ID "${selectId}" not found within the provided context.`)
     return
   }
 
   const handler = () => {
     const value = select.value
-    const existing = document.getElementById(fieldName)
+    const existing = context.querySelector(`#${fieldName}`)
 
     if (value === otherValue.toString()) {
       if (!existing) {
@@ -151,21 +157,29 @@ export function setupOtherFieldForSelect({ selectId, otherValue, fieldName, labe
  * Watch a checkbox (by name and value) and insert/remove an "other" text field when checked.
  *
  * @param {Object} options
- * @param {string} options.checkboxGroup - name attribute of the checkbox group to query.
- * @param {string|number} options.otherValue - checkbox value that should trigger the "other" field.
- * @param {string} options.fieldName - name/id for the generated input.
- * @param {string} options.labelName - label text for the generated input.
- * @param {string} options.placeholder - placeholder text for the generated input.
+ * @param {HTMLElement} options.context - Root element to use as context for queries
+ * @param {string} options.checkboxGroup - name attribute of the checkbox group to query
+ * @param {string|number} options.otherValue - checkbox value that should trigger the "other" field
+ * @param {string} options.fieldName - name/id for the generated input
+ * @param {string} options.labelName - label text for the generated input
+ * @param {string} options.placeholder - placeholder text for the generated input
  */
-export function setupOtherFieldForCheckbox({ checkboxGroup, otherValue, fieldName, labelName, placeholder }) {
-  const checkbox = document.querySelector(`input[name="${checkboxGroup}"][value="${otherValue}"]`)
+export function setupOtherFieldForCheckbox({ context, checkboxGroup, otherValue, fieldName, labelName, placeholder }) {
+  if (!context || !(context instanceof HTMLElement)) {
+    console.error('A valid HTML element must be provided as context')
+    return
+  }
+
+  const checkbox = context.querySelector(`input[name="${checkboxGroup}"][value="${otherValue}"]`)
   if (!checkbox) {
-    console.error(`Checkbox with name "${checkboxGroup}" and value "${otherValue}" not found.`)
+    console.error(
+      `Checkbox with name "${checkboxGroup}" and value "${otherValue}" not found within the provided context.`
+    )
     return
   }
 
   const handler = () => {
-    const existing = document.getElementById(fieldName)
+    const existing = context.querySelector(`#${fieldName}`)
 
     if (checkbox.checked) {
       if (!existing) {

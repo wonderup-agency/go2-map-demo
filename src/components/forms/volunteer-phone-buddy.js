@@ -19,274 +19,281 @@ import validator from 'validator'
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
 export default function (component) {
-  const webhookAddress = component.dataset.webhook || 'https://hook.us2.make.com/vpc32gcapub110y6fye9o46a8nnlw7fq'
-  const steps = Array.from(component.querySelectorAll('[data-form="step"]'))
-  const ticketIdField = component.querySelector('[data-volunteer-phone-buddy-form="ticket-id-field"]')
+  const formInstances = component.forEach ? component : [component]
 
-  const nextButton = component.querySelector('[data-form="next-btn"]')
-  const nextButtonInitialText = nextButton.firstChild.textContent
+  formInstances.forEach((formInstance) => {
+    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/vpc32gcapub110y6fye9o46a8nnlw7fq'
+    const steps = Array.from(formInstance.querySelectorAll('[data-form="step"]'))
+    const ticketIdField = formInstance.querySelector('[data-volunteer-phone-buddy-form="ticket-id-field"]')
 
-  const submitButton = component.querySelector('[data-form="submit-btn"]')
-  const submitButtonInitialText = submitButton.firstChild.textContent
+    const nextButton = formInstance.querySelector('[data-form="next-btn"]')
+    const nextButtonInitialText = nextButton.firstChild.textContent
 
-  const successEl = component.querySelector('.w-form-done')
-  const failEl = component.querySelector('.w-form-fail')
-  const formEl = component.querySelector('form')
+    const submitButton = formInstance.querySelector('[data-form="submit-btn"]')
+    const submitButtonInitialText = submitButton.firstChild.textContent
 
-  if (ticketIdField) {
-    ticketIdField.disabled = true
-    ticketIdField.type = 'hidden'
-  }
+    const successEl = formInstance.querySelector('.w-form-done')
+    const failEl = formInstance.querySelector('.w-form-fail')
+    const formEl = formInstance.querySelector('form')
 
-  setupOtherFieldForSelect({
-    selectId: 'Volunteer-Cancer-type',
-    otherValue: 557,
-    fieldName: 'Other-cancer-type',
-    labelName: 'Specify other type of lung cancer',
-    placeholder: 'Specify here',
-  })
-
-  setupOtherFieldForSelect({
-    selectId: 'Volunteer-How-did-you-heard-about-us',
-    otherValue: 98,
-    fieldName: 'Volunteer-Other-way-of-hearing-about-GO2',
-    labelName: 'Describe other way of hearing about GO2',
-    placeholder: 'Specify here',
-  })
-
-  setupOtherFieldForCheckbox({
-    checkboxGroup: 'Volunteer-Phone-Buddy-Treatment',
-    otherValue: 8,
-    fieldName: 'Volunteer-Other-treatment',
-    labelName: 'Specify treatment',
-    placeholder: 'Specify here',
-  })
-
-  // hide all steps except the first one
-  steps.forEach((step, i) => {
-    if (i !== 0) step.classList.add('hide')
-  })
-
-  component.addEventListener('click', (e) => {
-    const target = e.target
-    const nextBtn = target.closest('[data-form="next-btn"]')
-    const submitBtn = target.closest('[data-form="submit-btn"]')
-    const buttonText = target.closest('.button_text')
-
-    // NEXT BUTTON HANDLER
-    if (nextBtn || (buttonText && nextBtn)) {
-      // Hide fail element on button press (validations will rerun)
-      hideFail(failEl)
-
-      const currentStepEl = nextBtn.closest('[data-form="step"]')
-      if (!currentStepEl) return // Avoid errors if no step found
-
-      const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
-      if (currentStepIndex === -1) return // Invalid index, abort
-
-      // Log for debugging
-      console.log('Next button pressed - Step index:', currentStepIndex)
-
-      const stepInputsData = serializeInputs(currentStepEl)
-
-      // Log serialized data for debugging
-      console.log('Next button - Serialized step data:', stepInputsData)
-
-      const errors = []
-
-      // Step-specific validations
-      switch (currentStepIndex) {
-        case 0:
-          // First step validations
-          if (validator.isEmpty(stepInputsData['Volunteer-Phone-Buddy-Name'] || '')) {
-            errors.push('Enter your full name.')
-          }
-          if (!validator.isEmail(stepInputsData['Volunteer-Phone-Buddy-Email'] || '')) {
-            errors.push('Enter a valid email address (example: name@email.com)')
-          }
-          if (!validator.isMobilePhone(stepInputsData['Volunteer-Phone-Buddy-Phone'] || '')) {
-            errors.push('Enter a valid phone number (digits only, include area code)')
-          }
-          break
-
-        // Add more cases as needed for other steps
-
-        default:
-          break
-      }
-
-      // Clear any existing errors
-      clearStepsErrors(currentStepEl)
-
-      // If there are errors, append them and stop
-      if (errors.length > 0) {
-        appendStepsErrors(currentStepEl, errors)
-        return
-      }
-
-      // Set loading state
-      const nextBtnTextEl = nextBtn.querySelector('.button_text') || nextBtn.firstChild
-      const nextBtnInitialText = nextBtnTextEl?.textContent || 'Next'
-      setButtonLoading(nextBtn)
-
-      fetch(webhookAddress, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(stepInputsData),
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
-          return response.json()
-        })
-        .then((data) => {
-          if (ticketIdField) {
-            ticketIdField.value = data?.ticket || data || ''
-          }
-
-          // Hide current step and show next if exists
-          currentStepEl.classList.add('hide')
-          const nextIndex = currentStepIndex + 1
-          if (nextIndex < steps.length) {
-            steps[nextIndex].classList.remove('hide')
-          } else {
-            console.log('no more steps')
-          }
-        })
-        .catch((error) => {
-          console.error('Fetch error:', error)
-          showFail(failEl)
-        })
-        .finally(() => {
-          resetButton(nextBtn, nextBtnInitialText)
-        })
+    if (ticketIdField) {
+      ticketIdField.disabled = true
+      ticketIdField.type = 'hidden'
     }
 
-    // SUBMIT BUTTON HANDLER
-    if (submitBtn || (buttonText && submitBtn)) {
-      e.preventDefault()
-      e.stopImmediatePropagation()
+    setupOtherFieldForSelect({
+      context: formInstance,
+      selectId: 'Volunteer-Cancer-type',
+      otherValue: 557,
+      fieldName: 'Other-cancer-type',
+      labelName: 'Specify other type of lung cancer',
+      placeholder: 'Specify here',
+    })
 
-      // Hide fail element on button press (validations will rerun)
-      hideFail(failEl)
+    setupOtherFieldForSelect({
+      context: formInstance,
+      selectId: 'Volunteer-How-did-you-heard-about-us',
+      otherValue: 98,
+      fieldName: 'Volunteer-Other-way-of-hearing-about-GO2',
+      labelName: 'Describe other way of hearing about GO2',
+      placeholder: 'Specify here',
+    })
 
-      const currentStepEl = submitBtn.closest('[data-form="step"]')
-      if (!currentStepEl) return // Avoid errors if no step found
+    setupOtherFieldForCheckbox({
+      context: formInstance,
+      checkboxGroup: 'Volunteer-Phone-Buddy-Treatment',
+      otherValue: 8,
+      fieldName: 'Volunteer-Other-treatment',
+      labelName: 'Specify treatment',
+      placeholder: 'Specify here',
+    })
 
-      const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
-      if (currentStepIndex === -1) return // Invalid index, abort
+    // hide all steps except the first one
+    steps.forEach((step, i) => {
+      if (i !== 0) step.classList.add('hide')
+    })
 
-      // Log for debugging
-      console.log('Submit button pressed - Step index:', currentStepIndex)
+    formInstance.addEventListener('click', (e) => {
+      const target = e.target
+      const nextBtn = target.closest('[data-form="next-btn"]')
+      const submitBtn = target.closest('[data-form="submit-btn"]')
+      const buttonText = target.closest('.button_text')
 
-      const submitInputsData = serializeInputs(currentStepEl)
+      // NEXT BUTTON HANDLER
+      if (nextBtn || (buttonText && nextBtn)) {
+        // Hide fail element on button press (validations will rerun)
+        hideFail(failEl)
 
-      // Log serialized data for debugging
-      console.log('Submit button - Serialized submit data:', submitInputsData)
+        const currentStepEl = nextBtn.closest('[data-form="step"]')
+        if (!currentStepEl) return // Avoid errors if no step found
 
-      const errors = []
+        const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
+        if (currentStepIndex === -1) return // Invalid index, abort
 
-      // Submit step validations
-      if (!validator.isPostalCode(String(submitInputsData?.['Volunteer-Phone-Buddy-Zip-Code'] || ''), 'any')) {
-        errors.push('Enter a valid ZIP or postal code.')
-      }
+        // Log for debugging
+        console.log('Next button pressed - Step index:', currentStepIndex)
 
-      if ('Other-cancer-type' in submitInputsData && validator.isEmpty(submitInputsData['Other-cancer-type'] || '')) {
-        errors.push('Tell us what type of cancer you have.')
-      }
+        const stepInputsData = serializeInputs(currentStepEl)
 
-      if (
-        'Volunteer-Other-treatment' in submitInputsData &&
-        validator.isEmpty(submitInputsData['Volunteer-Other-treatment'] || '')
-      ) {
-        errors.push('Specify the treatment you received.')
-      }
+        // Log serialized data for debugging
+        console.log('Next button - Serialized step data:', stepInputsData)
 
-      if (
-        'Volunteer-Other-way-of-hearing-about-GO2' in submitInputsData &&
-        validator.isEmpty(submitInputsData['Volunteer-Other-way-of-hearing-about-GO2'] || '')
-      ) {
-        errors.push('Describe how you heard about GO2.')
-      }
+        const errors = []
 
-      // Clear any existing errors
-      clearStepsErrors(currentStepEl)
+        // Step-specific validations
+        switch (currentStepIndex) {
+          case 0:
+            // First step validations
+            if (validator.isEmpty(stepInputsData['Volunteer-Phone-Buddy-Name'] || '')) {
+              errors.push('Enter your full name.')
+            }
+            if (!validator.isEmail(stepInputsData['Volunteer-Phone-Buddy-Email'] || '')) {
+              errors.push('Enter a valid email address (example: name@email.com)')
+            }
+            if (!validator.isMobilePhone(stepInputsData['Volunteer-Phone-Buddy-Phone'] || '')) {
+              errors.push('Enter a valid phone number (digits only, include area code)')
+            }
+            break
 
-      // If there are errors, append them and stop
-      if (errors.length > 0) {
-        appendStepsErrors(currentStepEl, errors)
-        return
-      }
+          // Add more cases as needed for other steps
 
-      // Set loading state
-      const submitBtnTextEl = submitBtn.querySelector('.button_text') || submitBtn.firstChild
-      const submitBtnInitialText = submitBtnTextEl?.textContent || 'Submit'
-      setButtonLoading(submitBtn)
-
-      submitInputsData['ticket-id'] = ticketIdField.value
-
-      // Modify message to contain information about: Phone-Buddy-Treatment, Other-treatment, How-did-you-heard-about-us, and Other-way-of-hearing-about-GO2
-      let message = submitInputsData['Interest-in-becoming-a-Phone-Buddy'] || ''
-      const fieldsToAppend = [
-        { key: 'Volunteer-Phone-Buddy-Treatment', label: 'Treatment' },
-        { key: 'Volunteer-Other-treatment', label: 'Other treatment' },
-        {
-          key: 'Volunteer-How-did-you-heard-about-us',
-          label: 'How did you hear about GO2?',
-        },
-        {
-          key: 'Volunteer-Other-way-of-hearing-about-GO2',
-          label: 'Other way of hearing about GO2',
-        },
-      ]
-      // REMAKE THIS SENDING HTML INSTEAD OF TEXT: Format appended fields as HTML for better rendering in the webhook receiver
-      let appended = ''
-      fieldsToAppend.forEach((field) => {
-        if (submitInputsData.hasOwnProperty(field.key)) {
-          const value = submitInputsData[field.key]
-          let formattedValue = ''
-          if (Array.isArray(value) && value.length > 0) {
-            formattedValue = value.join(', ')
-          } else if (typeof value === 'string' && value.trim() !== '') {
-            formattedValue = value
-          } else if (value != null && value.toString().trim() !== '') {
-            formattedValue = value.toString()
-          }
-          if (formattedValue) {
-            appended += `<br><strong>${field.label}:</strong> ${formattedValue}`
-          }
+          default:
+            break
         }
-      })
-      // Update the message if there's anything to append
-      if (appended) {
-        message = message.trim() ? `${message.trim()}.<br>${appended.trim()}` : appended.trim()
+
+        // Clear any existing errors
+        clearStepsErrors(currentStepEl)
+
+        // If there are errors, append them and stop
+        if (errors.length > 0) {
+          appendStepsErrors(currentStepEl, errors)
+          return
+        }
+
+        // Set loading state
+        const nextBtnTextEl = nextBtn.querySelector('.button_text') || nextBtn.firstChild
+        const nextBtnInitialText = nextBtnTextEl?.textContent || 'Next'
+        setButtonLoading(nextBtn)
+
+        fetch(webhookAddress, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(stepInputsData),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`)
+            }
+            return response.json()
+          })
+          .then((data) => {
+            if (ticketIdField) {
+              ticketIdField.value = data?.ticket || data || ''
+            }
+
+            // Hide current step and show next if exists
+            currentStepEl.classList.add('hide')
+            const nextIndex = currentStepIndex + 1
+            if (nextIndex < steps.length) {
+              steps[nextIndex].classList.remove('hide')
+            } else {
+              console.log('no more steps')
+            }
+          })
+          .catch((error) => {
+            console.error('Fetch error:', error)
+            showFail(failEl)
+          })
+          .finally(() => {
+            resetButton(nextBtn, nextBtnInitialText)
+          })
       }
-      submitInputsData['Interest-in-becoming-a-Phone-Buddy'] = message
 
-      // Log final submit data for debugging
-      console.log('Final submit data (with modified message):', submitInputsData)
+      // SUBMIT BUTTON HANDLER
+      if (submitBtn || (buttonText && submitBtn)) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
 
-      fetch(webhookAddress, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitInputsData),
-      })
-        .then((response) => {
-          if (!response.ok) throw new Error('Submission failed')
-          return response.json()
+        // Hide fail element on button press (validations will rerun)
+        hideFail(failEl)
+
+        const currentStepEl = submitBtn.closest('[data-form="step"]')
+        if (!currentStepEl) return // Avoid errors if no step found
+
+        const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
+        if (currentStepIndex === -1) return // Invalid index, abort
+
+        // Log for debugging
+        console.log('Submit button pressed - Step index:', currentStepIndex)
+
+        const submitInputsData = serializeInputs(currentStepEl)
+
+        // Log serialized data for debugging
+        console.log('Submit button - Serialized submit data:', submitInputsData)
+
+        const errors = []
+
+        // Submit step validations
+        if (!validator.isPostalCode(String(submitInputsData?.['Volunteer-Phone-Buddy-Zip-Code'] || ''), 'any')) {
+          errors.push('Enter a valid ZIP or postal code.')
+        }
+
+        if ('Other-cancer-type' in submitInputsData && validator.isEmpty(submitInputsData['Other-cancer-type'] || '')) {
+          errors.push('Tell us what type of cancer you have.')
+        }
+
+        if (
+          'Volunteer-Other-treatment' in submitInputsData &&
+          validator.isEmpty(submitInputsData['Volunteer-Other-treatment'] || '')
+        ) {
+          errors.push('Specify the treatment you received.')
+        }
+
+        if (
+          'Volunteer-Other-way-of-hearing-about-GO2' in submitInputsData &&
+          validator.isEmpty(submitInputsData['Volunteer-Other-way-of-hearing-about-GO2'] || '')
+        ) {
+          errors.push('Describe how you heard about GO2.')
+        }
+
+        // Clear any existing errors
+        clearStepsErrors(currentStepEl)
+
+        // If there are errors, append them and stop
+        if (errors.length > 0) {
+          appendStepsErrors(currentStepEl, errors)
+          return
+        }
+
+        // Set loading state
+        const submitBtnTextEl = submitBtn.querySelector('.button_text') || submitBtn.firstChild
+        const submitBtnInitialText = submitBtnTextEl?.textContent || 'Submit'
+        setButtonLoading(submitBtn)
+
+        submitInputsData['ticket-id'] = ticketIdField.value
+
+        // Modify message to contain information about: Phone-Buddy-Treatment, Other-treatment, How-did-you-heard-about-us, and Other-way-of-hearing-about-GO2
+        let message = submitInputsData['Interest-in-becoming-a-Phone-Buddy'] || ''
+        const fieldsToAppend = [
+          { key: 'Volunteer-Phone-Buddy-Treatment', label: 'Treatment' },
+          { key: 'Volunteer-Other-treatment', label: 'Other treatment' },
+          {
+            key: 'Volunteer-How-did-you-heard-about-us',
+            label: 'How did you hear about GO2?',
+          },
+          {
+            key: 'Volunteer-Other-way-of-hearing-about-GO2',
+            label: 'Other way of hearing about GO2',
+          },
+        ]
+        // REMAKE THIS SENDING HTML INSTEAD OF TEXT: Format appended fields as HTML for better rendering in the webhook receiver
+        let appended = ''
+        fieldsToAppend.forEach((field) => {
+          if (submitInputsData.hasOwnProperty(field.key)) {
+            const value = submitInputsData[field.key]
+            let formattedValue = ''
+            if (Array.isArray(value) && value.length > 0) {
+              formattedValue = value.join(', ')
+            } else if (typeof value === 'string' && value.trim() !== '') {
+              formattedValue = value
+            } else if (value != null && value.toString().trim() !== '') {
+              formattedValue = value.toString()
+            }
+            if (formattedValue) {
+              appended += `<br><strong>${field.label}:</strong> ${formattedValue}`
+            }
+          }
         })
-        .then((data) => {
-          hideForm(formEl)
-          showSuccess(successEl)
+        // Update the message if there's anything to append
+        if (appended) {
+          message = message.trim() ? `${message.trim()}.<br>${appended.trim()}` : appended.trim()
+        }
+        submitInputsData['Interest-in-becoming-a-Phone-Buddy'] = message
+
+        // Log final submit data for debugging
+        console.log('Final submit data (with modified message):', submitInputsData)
+
+        fetch(webhookAddress, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submitInputsData),
         })
-        .catch((error) => {
-          console.error('Submit fetch error:', error)
-          showFail(failEl)
-        })
-        .finally(() => {
-          resetButton(submitBtn, submitBtnInitialText)
-        })
-    }
+          .then((response) => {
+            if (!response.ok) throw new Error('Submission failed')
+            return response.json()
+          })
+          .then((data) => {
+            hideForm(formEl)
+            showSuccess(successEl)
+          })
+          .catch((error) => {
+            console.error('Submit fetch error:', error)
+            showFail(failEl)
+          })
+          .finally(() => {
+            resetButton(submitBtn, submitBtnInitialText)
+          })
+      }
+    })
   })
 }
