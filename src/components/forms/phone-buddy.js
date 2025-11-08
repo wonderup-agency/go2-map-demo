@@ -42,6 +42,7 @@ export default function (component) {
       fieldName: 'Other-cancer-type',
       labelName: 'Specify other type of lung cancer',
       placeholder: 'Specify here',
+      wrapperClass: 'multi-form14_field-wrapper',
     })
 
     setupOtherFieldForSelect({
@@ -51,6 +52,7 @@ export default function (component) {
       fieldName: 'Other-way-of-hearing-about-GO2',
       labelName: 'Describe other way of hearing about GO2',
       placeholder: 'Specify here',
+      wrapperClass: 'multi-form14_field-wrapper',
     })
 
     setupOtherFieldForCheckbox({
@@ -60,6 +62,7 @@ export default function (component) {
       fieldName: 'Other-treatment',
       labelName: 'Specify treatment',
       placeholder: 'Specify here',
+      wrapperClass: 'multi-form14_field-wrapper',
     })
 
     // hide all steps except the first one
@@ -99,17 +102,35 @@ export default function (component) {
           case 0:
             // First step validations
             if (validator.isEmpty(stepInputsData['Phone-Buddy-First-Name'] || '')) {
-              errors.push('Enter your first name.')
+              errors.push({
+                fieldName: 'Phone-Buddy-First-Name',
+                error: 'Enter your first name',
+                appendAt: '.multi-form14_field-wrapper',
+              })
             }
             if (validator.isEmpty(stepInputsData['Phone-Buddy-Last-Name'] || '')) {
-              errors.push('Enter your last name.')
+              errors.push({
+                fieldName: 'Phone-Buddy-Last-Name',
+                error: 'Enter your last name',
+                appendAt: '.multi-form14_field-wrapper',
+              })
             }
             if (!validator.isEmail(stepInputsData['Phone-Buddy-Email'] || '')) {
-              errors.push('Enter a valid email address (example: name@email.com)')
+              errors.push({
+                fieldName: 'Phone-Buddy-Email',
+                error: 'Enter a valid email address (example: name@email.com)',
+                appendAt: '.multi-form14_field-wrapper',
+              })
             }
-            if (!validator.isMobilePhone(stepInputsData['Phone-Buddy-Phone'] || '')) {
-              errors.push('Enter a valid phone number (digits only, include area code)')
+            const phone = stepInputsData['Phone-Buddy-Phone'] || ''
+            if (!validator.isMobilePhone(phone, 'any')) {
+              errors.push({
+                fieldName: 'Phone-Buddy-Phone',
+                error: 'Enter a valid phone number (include area code)',
+                appendAt: '.multi-form14_field-wrapper',
+              })
             }
+
             break
 
           // Add more cases as needed for other steps
@@ -123,7 +144,7 @@ export default function (component) {
 
         // If there are errors, append them and stop
         if (errors.length > 0) {
-          appendStepsErrors(currentStepEl, errors)
+          appendStepsErrors(errors, currentStepEl)
           return
         }
 
@@ -192,22 +213,38 @@ export default function (component) {
 
         // Submit step validations
         if (!validator.isPostalCode(String(submitInputsData?.['Phone-Buddy-Zip-Code'] || ''), 'any')) {
-          errors.push('Enter a valid ZIP or postal code.')
+          errors.push({
+            fieldName: 'Phone-Buddy-Zip-Code',
+            error: 'Enter a valid ZIP or postal code',
+            appendAt: '.multi-form14_field-wrapper',
+          })
         }
 
         if ('Other-cancer-type' in submitInputsData && validator.isEmpty(submitInputsData['Other-cancer-type'] || '')) {
-          errors.push('Tell us what type of cancer you have.')
+          errors.push({
+            fieldName: 'Other-cancer-type',
+            error: 'Tell us what type of cancer you have',
+            appendAt: '.multi-form14_field-wrapper',
+          })
         }
 
         if ('Other-treatment' in submitInputsData && validator.isEmpty(submitInputsData['Other-treatment'] || '')) {
-          errors.push('Specify the treatment you received.')
+          errors.push({
+            fieldName: 'Other-treatment',
+            error: 'Specify the treatment you received',
+            appendAt: '.multi-form14_field-wrapper',
+          })
         }
 
         if (
           'Other-way-of-hearing-about-GO2' in submitInputsData &&
           validator.isEmpty(submitInputsData['Other-way-of-hearing-about-GO2'] || '')
         ) {
-          errors.push('Describe how you heard about GO2.')
+          errors.push({
+            fieldName: 'Other-way-of-hearing-about-GO2',
+            error: 'Describe how you heard about GO2',
+            appendAt: '.multi-form14_field-wrapper',
+          })
         }
 
         // Clear any existing errors
@@ -215,7 +252,7 @@ export default function (component) {
 
         // If there are errors, append them and stop
         if (errors.length > 0) {
-          appendStepsErrors(currentStepEl, errors)
+          appendStepsErrors(errors, currentStepEl)
           return
         }
 

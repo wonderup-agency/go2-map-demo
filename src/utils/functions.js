@@ -163,8 +163,17 @@ export function setupOtherFieldForSelect({ context, selectId, otherValue, fieldN
  * @param {string} options.fieldName - name/id for the generated input
  * @param {string} options.labelName - label text for the generated input
  * @param {string} options.placeholder - placeholder text for the generated input
+ * @param {string} [options.wrapperClass='multi-step_checkbox-wrapper'] - CSS class of the checkbox wrapper
  */
-export function setupOtherFieldForCheckbox({ context, checkboxGroup, otherValue, fieldName, labelName, placeholder }) {
+export function setupOtherFieldForCheckbox({
+  context,
+  checkboxGroup,
+  otherValue,
+  fieldName,
+  labelName,
+  placeholder,
+  wrapperClass = 'multi-form14_field-wrapper', // Default value maintains backward compatibility
+}) {
   if (!context || !(context instanceof HTMLElement)) {
     console.error('A valid HTML element must be provided as context')
     return
@@ -179,16 +188,17 @@ export function setupOtherFieldForCheckbox({ context, checkboxGroup, otherValue,
   }
 
   const handler = () => {
+    // const existing = context.querySelector(`#${fieldName}`)
     const existing = context.querySelector(`#${fieldName}`)
 
     if (checkbox.checked) {
       if (!existing) {
         const newField = createTextField(fieldName, labelName, placeholder)
-        const specificWrapper = checkbox.closest('.multi-step_checkbox-wrapper')
+        const specificWrapper = checkbox.closest(`.${wrapperClass}`)
         if (specificWrapper) {
           specificWrapper.after(newField)
         } else {
-          console.error(`Wrapper ".multi-step_checkbox-wrapper" not found for checkbox with value "${otherValue}".`)
+          console.error(`Wrapper ".${wrapperClass}" not found for checkbox with value "${otherValue}".`)
         }
       }
     } else {
@@ -246,39 +256,71 @@ function createTextField(fieldName, labelName, placeholder) {
  * @returns {void}
  */
 export function clearStepsErrors(currentStepEl) {
-  const errorContainer = currentStepEl.querySelector('.validation-errors')
-  if (errorContainer) {
-    errorContainer.remove()
-  }
+  document.querySelectorAll('.validation-error').forEach((el) => el.remove())
 }
 
 /**
- * Append validation error messages to the provided step element.
- * Any existing error container is removed before appending the new one.
+ * Append validation error messages at specified locations.
  *
- * @param {HTMLElement} currentStepEl - Root element of the current step where errors should be appended.
- * @param {string[]} errors - Array of error message strings to display. If empty, no container is created.
+ * @param {Array<{fieldName: string, error: string, appendAt?: string}>} errors - Array of error objects
+ * @param {HTMLElement} [scope] - Optional root element to scope queries and appended errors to (defaults to document)
  * @returns {void}
  */
-export function appendStepsErrors(currentStepEl, errors) {
-  // Remove any previous error container to avoid duplicates
-  const prev = currentStepEl.querySelector('.validation-errors')
-  if (prev) prev.remove()
+export function appendStepsErrors(errors, scope) {
+  const root = scope instanceof HTMLElement ? scope : document
 
-  if (errors.length > 0) {
-    const errDiv = document.createElement('div')
-    errDiv.className = 'validation-errors'
-    errDiv.style.color = 'red'
-    errDiv.style.marginTop = '1rem'
-
-    errors.forEach((msg) => {
-      const line = document.createElement('div')
-      line.textContent = msg
-      errDiv.appendChild(line)
-    })
-
-    currentStepEl.appendChild(errDiv)
+  // Input validation
+  if (!Array.isArray(errors)) {
+    console.warn('appendStepsErrors: errors parameter must be an array')
+    return
   }
+
+  // Remove all existing error messages first (scoped)
+  root.querySelectorAll('.validation-error').forEach((el) => el.remove())
+
+  // helper to safely build [name="..."] selector
+  const escapeName = (name) =>
+    typeof CSS !== 'undefined' && typeof CSS.escape === 'function' ? CSS.escape(name) : name
+
+  // Process each error
+  errors.forEach(({ fieldName, error, appendAt }) => {
+    // Skip if error object is malformed
+    if (!fieldName || !error) {
+      console.warn('appendStepsErrors: invalid error object', { fieldName, error })
+      return
+    }
+
+    // Find the input element first (scoped)
+    const inputElement = root.querySelector(`[name="${escapeName(fieldName)}"]`)
+    if (!inputElement) {
+      console.warn(`appendStepsErrors: no input found with name "${fieldName}" in provided scope`)
+      return
+    }
+
+    // Create error message element
+    const errorDiv = document.createElement('div')
+    errorDiv.className = 'validation-error'
+    errorDiv.style.color = 'red'
+    errorDiv.textContent = error
+
+    // Determine where to append the error
+    if (appendAt) {
+      // Find closest container matching the selector from the input element
+      const targetContainer = inputElement.closest(appendAt)
+      if (!targetContainer || !root.contains(targetContainer)) {
+        console.warn(
+          `appendStepsErrors: no matching container found for selector "${appendAt}" near input "${fieldName}" within provided scope`
+        )
+        return
+      }
+      targetContainer.appendChild(errorDiv)
+    } else {
+      // Default behavior: append after the input or its wrapper (ensure it stays inside scope)
+      const wrapper = inputElement.closest('.multi-form14_field-wrapper')
+      const targetElement = wrapper && root.contains(wrapper) ? wrapper : inputElement
+      targetElement.insertAdjacentElement('afterend', errorDiv)
+    }
+  })
 }
 
 /**

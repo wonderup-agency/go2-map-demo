@@ -25,6 +25,14 @@ const components = [
     importFn: () => import('./components/forms/volunteer-phone-buddy.js'),
   },
   {
+    selector: "[data-component='including-form']",
+    importFn: () => import('./components/forms/including.js'),
+  },
+  {
+    selector: "[data-component='mind-over-matter-form']",
+    importFn: () => import('./components/forms/mind-over-matter.js'),
+  },
+  {
     selector: "[data-component='graphics-bars']",
     importFn: () => import('./components/graphics/graphics-bars.js'),
   },

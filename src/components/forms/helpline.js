@@ -1,7 +1,5 @@
 import {
   serializeInputs,
-  setupOtherFieldForSelect,
-  setupOtherFieldForCheckbox,
   clearStepsErrors,
   appendStepsErrors,
   setButtonLoading,
@@ -72,13 +70,26 @@ export default function (component) {
           case 0:
             // First step validations
             if (validator.isEmpty(stepInputsData['HelpLine-Name'] || '')) {
-              errors.push('Enter your full name.')
+              errors.push({
+                fieldName: 'HelpLine-Name',
+                error: 'Enter your full name',
+                appendAt: '.multi-form14_field-wrapper',
+              })
             }
             if (!validator.isEmail(stepInputsData['HelpLine-Email'] || '')) {
-              errors.push('Enter a valid email address (example: name@email.com)')
+              errors.push({
+                fieldName: 'HelpLine-Email',
+                error: 'Enter a valid email address (example: name@email.com)',
+                appendAt: '.multi-form14_field-wrapper',
+              })
             }
-            if (!validator.isMobilePhone(stepInputsData['HelpLine-Phone'] || '')) {
-              errors.push('Enter a valid phone number (digits only, include area code)')
+            const phone = stepInputsData['HelpLine-Phone'] || ''
+            if (!validator.isMobilePhone(phone, 'any')) {
+              errors.push({
+                fieldName: 'HelpLine-Phone',
+                error: 'Enter a valid phone number (include area code)',
+                appendAt: '.multi-form14_field-wrapper',
+              })
             }
             break
 
@@ -93,7 +104,7 @@ export default function (component) {
 
         // If there are errors, append them and stop
         if (errors.length > 0) {
-          appendStepsErrors(currentStepEl, errors)
+          appendStepsErrors(errors, currentStepEl)
           return
         }
 
@@ -185,7 +196,7 @@ export default function (component) {
 
         // If there are errors, append them and stop
         if (errors.length > 0) {
-          appendStepsErrors(currentStepEl, errors)
+          appendStepsErrors(errors, currentStepEl)
           return
         }
 
