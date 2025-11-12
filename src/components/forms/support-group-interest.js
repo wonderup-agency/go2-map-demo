@@ -10,6 +10,7 @@ import {
   showFail,
   showSuccess,
   hideForm,
+  dependentFieldsForSelect,
 } from '../../utils/functions'
 
 import validator from 'validator'
@@ -22,47 +23,43 @@ export default function (component) {
   const formInstances = component.forEach ? component : [component]
 
   formInstances.forEach((formInstance) => {
-    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/vpc32gcapub110y6fye9o46a8nnlw7fq'
+    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/eyhunqogl9rgad784tzw3qf0klx5vusm'
     const steps = Array.from(formInstance.querySelectorAll('[data-form="step"]'))
-    const ticketIdField = formInstance.querySelector('[data-volunteer-phone-buddy-form="ticket-id-field"]')
+    const idField = formInstance.querySelector('#id')
 
     const successEl = formInstance.querySelector('.w-form-done')
     const failEl = formInstance.querySelector('.w-form-fail')
     const formEl = formInstance.querySelector('form')
 
-    if (ticketIdField) {
-      ticketIdField.disabled = true
-      ticketIdField.type = 'hidden'
+    if (idField) {
+      idField.disabled = true
+      idField.type = 'hidden'
     }
 
     setupOtherFieldForSelect({
       context: formInstance,
-      selectId: 'Volunteer-Cancer-type',
-      otherValue: 557,
-      fieldName: 'Other-cancer-type',
-      labelName: 'Specify other type of lung cancer',
-      placeholder: 'Specify here',
-      wrapperClass: 'multi-form14_field-wrapper',
-    })
-
-    setupOtherFieldForSelect({
-      context: formInstance,
-      selectId: 'Volunteer-How-did-you-heard-about-us',
-      otherValue: 98,
-      fieldName: 'Volunteer-Other-way-of-hearing-about-GO2',
-      labelName: 'Describe other way of hearing about GO2',
+      selectId: 'connection-to-lung-cancer',
+      otherValue: 'other-connection',
+      fieldName: 'other-connection-to-lung-cancer',
+      labelName: 'Specify other connection to lung cancer',
       placeholder: 'Specify here',
       wrapperClass: 'multi-form14_field-wrapper',
     })
 
     setupOtherFieldForCheckbox({
       context: formInstance,
-      checkboxGroup: 'Volunteer-Phone-Buddy-Treatment',
-      otherValue: 8,
-      fieldName: 'Volunteer-Other-treatment',
-      labelName: 'Specify treatment',
+      checkboxGroup: 'interests',
+      otherValue: 'Other interests',
+      fieldName: 'other-interests',
+      labelName: 'Specify other interests',
       placeholder: 'Specify here',
       wrapperClass: 'multi-form14_field-wrapper',
+    })
+
+    dependentFieldsForSelect({
+      context: formInstance,
+      selectId: 'copy-of-building-community-guide',
+      dependentValue: 'Wants a copy via Mail',
     })
 
     // hide all steps except the first one
@@ -101,25 +98,24 @@ export default function (component) {
         switch (currentStepIndex) {
           case 0:
             // First step validations
-            if (validator.isEmpty(stepInputsData['Volunteer-Phone-Buddy-Name'] || '')) {
+            if (validator.isEmpty(stepInputsData['first-name'] || '')) {
               errors.push({
-                fieldName: 'Volunteer-Phone-Buddy-Name',
-                error: 'Enter your full name',
+                fieldName: 'first-name',
+                error: 'Enter your first name',
                 appendAt: '.multi-form14_field-wrapper',
               })
             }
-            if (!validator.isEmail(stepInputsData['Volunteer-Phone-Buddy-Email'] || '')) {
+            if (validator.isEmpty(stepInputsData['last-name'] || '')) {
               errors.push({
-                fieldName: 'Volunteer-Phone-Buddy-Email',
+                fieldName: 'last-name',
+                error: 'Enter your last name',
+                appendAt: '.multi-form14_field-wrapper',
+              })
+            }
+            if (!validator.isEmail(stepInputsData['email'] || '')) {
+              errors.push({
+                fieldName: 'email',
                 error: 'Enter a valid email address (example: name@email.com)',
-                appendAt: '.multi-form14_field-wrapper',
-              })
-            }
-            const phone = stepInputsData['Volunteer-Phone-Buddy-Phone'] || ''
-            if (!validator.isMobilePhone(phone, 'any')) {
-              errors.push({
-                fieldName: 'Volunteer-Phone-Buddy-Phone',
-                error: 'Enter a valid phone number (include area code)',
                 appendAt: '.multi-form14_field-wrapper',
               })
             }
@@ -154,11 +150,11 @@ export default function (component) {
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`)
             }
-            return response.json()
+            return response.text()
           })
           .then((data) => {
-            if (ticketIdField) {
-              ticketIdField.value = data?.ticket || data || ''
+            if (idField) {
+              idField.value = data
             }
 
             // Hide current step and show next if exists
@@ -196,48 +192,65 @@ export default function (component) {
         // Log for debugging
         console.log('Submit button pressed - Step index:', currentStepIndex)
 
-        const submitInputsData = serializeInputs(currentStepEl)
+        // const submitInputsData = serializeInputs(currentStepEl)
+        const submitInputsData = serializeInputs(formInstance)
 
         // Log serialized data for debugging
         console.log('Submit button - Serialized submit data:', submitInputsData)
 
         const errors = []
 
-        // Submit step validations
-        if (!validator.isPostalCode(String(submitInputsData?.['Volunteer-Phone-Buddy-Zip-Code'] || ''), 'any')) {
+        if (
+          'other-connection-to-lung-cancer' in submitInputsData &&
+          validator.isEmpty(submitInputsData['other-connection-to-lung-cancer'] || '')
+        ) {
           errors.push({
-            fieldName: 'Volunteer-Phone-Buddy-Zip-Code',
+            fieldName: 'other-connection-to-lung-cancer',
+            error: 'Tell us your conection to long cancer',
+            appendAt: '.multi-form14_field-wrapper',
+          })
+        }
+
+        if ('other-interests' in submitInputsData && validator.isEmpty(submitInputsData['other-interests'] || '')) {
+          errors.push({
+            fieldName: 'other-interests',
+            error: 'Tell us what are your interests',
+            appendAt: '.multi-form14_field-wrapper',
+          })
+        }
+
+        const streetAddressInput = currentStepEl.querySelector(`#street-address`)
+        const streetAddressWrapper = streetAddressInput.closest('[data-depends-on]')
+        const validateStreetAddress = streetAddressWrapper.getAttribute('data-active') === 'true'
+        const streetAddress = submitInputsData['street-address'] ?? ''
+        if (validateStreetAddress && validator.isEmpty(streetAddress)) {
+          errors.push({
+            fieldName: 'street-address',
+            error: 'Enter a valid street address',
+            appendAt: '.multi-form14_field-wrapper',
+          })
+        }
+
+        const cityInput = currentStepEl.querySelector(`#city`)
+        const cityWrapper = cityInput.closest('[data-depends-on]')
+        const validateCity = cityWrapper.getAttribute('data-active') === 'true'
+        const city = submitInputsData['city'] ?? ''
+        if (validateCity && validator.isEmpty(city)) {
+          errors.push({
+            fieldName: 'city',
+            error: 'Enter a valid city name',
+            appendAt: '.multi-form14_field-wrapper',
+          })
+        }
+
+        const zipCodeInput = currentStepEl.querySelector(`#zip-code`)
+        const zipCodeWrapper = zipCodeInput.closest('[data-depends-on]')
+        const validateZipCode = zipCodeWrapper.getAttribute('data-active') === 'true'
+        const zipCode = submitInputsData['zip-code'] ?? ''
+        if (validateZipCode && !validator.isPostalCode(String(zipCode), 'any')) {
+          errors.push({
+            fieldName: 'zip-code',
             error: 'Enter a valid ZIP or postal code',
-            appendAt: '.multi-form14_field-wrapper',
-          })
-        }
-
-        if ('Other-cancer-type' in submitInputsData && validator.isEmpty(submitInputsData['Other-cancer-type'] || '')) {
-          errors.push({
-            fieldName: 'Other-cancer-type',
-            error: 'Tell us what type of cancer you have',
-            appendAt: '.multi-form14_field-wrapper',
-          })
-        }
-
-        if (
-          'Volunteer-Other-treatment' in submitInputsData &&
-          validator.isEmpty(submitInputsData['Volunteer-Other-treatment'] || '')
-        ) {
-          errors.push({
-            fieldName: 'Volunteer-Other-treatment',
-            error: 'Specify the treatment you received',
-            appendAt: '.multi-form14_field-wrapper',
-          })
-        }
-
-        if (
-          'Volunteer-Other-way-of-hearing-about-GO2' in submitInputsData &&
-          validator.isEmpty(submitInputsData['Volunteer-Other-way-of-hearing-about-GO2'] || '')
-        ) {
-          errors.push({
-            fieldName: 'Volunteer-Other-way-of-hearing-about-GO2',
-            error: 'Describe how you heard about GO2',
             appendAt: '.multi-form14_field-wrapper',
           })
         }
@@ -251,50 +264,20 @@ export default function (component) {
           return
         }
 
+        // remove conditional fields from final object
+        if (document.querySelector('#copy-of-building-community-guide').value != 'Wants a copy via Mail') {
+          delete submitInputsData['street-address']
+          delete submitInputsData.city
+          delete submitInputsData.state
+          delete submitInputsData['zip-code']
+        }
+
         // Set loading state
         const submitBtnTextEl = submitBtn.querySelector('.button_text') || submitBtn.firstChild
         const submitBtnInitialText = submitBtnTextEl?.textContent || 'Submit'
         setButtonLoading(submitBtn)
 
-        submitInputsData['ticket-id'] = ticketIdField.value
-
-        // Modify message to contain information about: Phone-Buddy-Treatment, Other-treatment, How-did-you-heard-about-us, and Other-way-of-hearing-about-GO2
-        let message = submitInputsData['Interest-in-becoming-a-Phone-Buddy'] || ''
-        const fieldsToAppend = [
-          { key: 'Volunteer-Phone-Buddy-Treatment', label: 'Treatment' },
-          { key: 'Volunteer-Other-treatment', label: 'Other treatment' },
-          {
-            key: 'Volunteer-How-did-you-heard-about-us',
-            label: 'How did you hear about GO2?',
-          },
-          {
-            key: 'Volunteer-Other-way-of-hearing-about-GO2',
-            label: 'Other way of hearing about GO2',
-          },
-        ]
-        // REMAKE THIS SENDING HTML INSTEAD OF TEXT: Format appended fields as HTML for better rendering in the webhook receiver
-        let appended = ''
-        fieldsToAppend.forEach((field) => {
-          if (submitInputsData.hasOwnProperty(field.key)) {
-            const value = submitInputsData[field.key]
-            let formattedValue = ''
-            if (Array.isArray(value) && value.length > 0) {
-              formattedValue = value.join(', ')
-            } else if (typeof value === 'string' && value.trim() !== '') {
-              formattedValue = value
-            } else if (value != null && value.toString().trim() !== '') {
-              formattedValue = value.toString()
-            }
-            if (formattedValue) {
-              appended += `<br><strong>${field.label}:</strong> ${formattedValue}`
-            }
-          }
-        })
-        // Update the message if there's anything to append
-        if (appended) {
-          message = message.trim() ? `${message.trim()}.<br>${appended.trim()}` : appended.trim()
-        }
-        submitInputsData['Interest-in-becoming-a-Phone-Buddy'] = message
+        submitInputsData['id'] = idField.value
 
         // Log final submit data for debugging
         console.log('Final submit data (with modified message):', submitInputsData)

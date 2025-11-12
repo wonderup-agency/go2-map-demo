@@ -33,6 +33,10 @@ const components = [
     importFn: () => import('./components/forms/mind-over-matter.js'),
   },
   {
+    selector: "[data-component='support-group-interest']",
+    importFn: () => import('./components/forms/support-group-interest.js'),
+  },
+  {
     selector: "[data-component='graphics-bars']",
     importFn: () => import('./components/graphics/graphics-bars.js'),
   },

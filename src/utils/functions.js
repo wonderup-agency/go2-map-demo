@@ -249,6 +249,42 @@ function createTextField(fieldName, labelName, placeholder) {
   return div
 }
 
+export function dependentFieldsForSelect({ context, selectId, dependentValue }) {
+  if (!context || !(context instanceof Element)) {
+    console.error('Invalid context provided. It must be a DOM element.')
+    return
+  }
+
+  const selectElement = context.querySelector(`#${selectId}`)
+  if (!selectElement || !(selectElement instanceof HTMLSelectElement)) {
+    console.error(`Select element with ID "${selectId}" not found within the provided context.`)
+    return
+  }
+
+  const updateDependents = () => {
+    const currentValue = selectElement.value
+    const shouldShow = currentValue === dependentValue
+
+    const dependentElements = context.querySelectorAll(`[data-depends-on="${dependentValue}"]`)
+
+    dependentElements.forEach((element) => {
+      if (shouldShow) {
+        element.classList.remove('hide')
+        element.setAttribute('data-active', 'true')
+      } else {
+        element.classList.add('hide')
+        element.setAttribute('data-active', 'false')
+      }
+    })
+  }
+
+  // Apply initial state
+  updateDependents()
+
+  // Add event listener for changes
+  selectElement.addEventListener('change', updateDependents)
+}
+
 /**
  * Remove any validation error container inside the provided step element.
  *
