@@ -9,7 +9,7 @@
  * @param {HTMLElement} root
  * @returns {Object}
  */
-export function serializeInputs(root) {
+export async function serializeInputs(root) {
   if (!root || typeof root.querySelectorAll !== 'function') {
     throw new TypeError('serializeInputs expects a DOM element as the root')
   }
@@ -29,6 +29,26 @@ export function serializeInputs(root) {
     const n = Number(v)
     return Number.isFinite(n) ? n : v
   }
+
+  // helper to read a File as base64 (returns object with metadata + base64 content)
+  const readFileAsBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = reader.result
+        const commaIdx = typeof dataUrl === 'string' ? dataUrl.indexOf(',') : -1
+        const base64 = commaIdx === -1 ? dataUrl : dataUrl.slice(commaIdx + 1)
+        resolve({
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          lastModified: file.lastModified,
+          content: base64,
+        })
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
 
   const result = {}
 
@@ -55,6 +75,33 @@ export function serializeInputs(root) {
           }
           return n.value
         })
+      }
+      continue
+    }
+
+    // handle file inputs (single and multiple)
+    if (type === 'file') {
+      if (nodes.length === 1) {
+        const inputEl = nodes[0]
+        const fileList = inputEl.files ? Array.from(inputEl.files) : []
+        if (inputEl.multiple) {
+          // array of file objects (may be empty array)
+          result[name] = await Promise.all(fileList.map((f) => readFileAsBase64(f)))
+        } else {
+          // single file object or null if none selected
+          result[name] = fileList.length ? await readFileAsBase64(fileList[0]) : null
+        }
+      } else {
+        // multiple input[file] elements sharing the same name -> array of file objects / arrays
+        result[name] = await Promise.all(
+          nodes.map(async (n) => {
+            const fileList = n.files ? Array.from(n.files) : []
+            if (n.multiple) {
+              return await Promise.all(fileList.map((f) => readFileAsBase64(f)))
+            }
+            return fileList.length ? await readFileAsBase64(fileList[0]) : null
+          })
+        )
       }
       continue
     }

@@ -33,6 +33,10 @@ const components = [
     importFn: () => import('./components/forms/mind-over-matter.js'),
   },
   {
+    selector: "[data-component='share-your-story-form']",
+    importFn: () => import('./components/forms/share-your-story.js'),
+  },
+  {
     selector: "[data-component='support-group-interest']",
     importFn: () => import('./components/forms/support-group-interest.js'),
   },

@@ -67,7 +67,7 @@ export default function (component) {
       if (i !== 0) step.classList.add('hide')
     })
 
-    formInstance.addEventListener('click', (e) => {
+    formInstance.addEventListener('click', async (e) => {
       const target = e.target
       const nextBtn = target.closest('[data-form="next-btn"]')
       const submitBtn = target.closest('[data-form="submit-btn"]')
@@ -87,7 +87,7 @@ export default function (component) {
         // Log for debugging
         console.log('Next button pressed - Step index:', currentStepIndex)
 
-        const stepInputsData = serializeInputs(currentStepEl)
+        const stepInputsData = await serializeInputs(currentStepEl)
 
         // Log serialized data for debugging
         console.log('Next button - Serialized step data:', stepInputsData)
@@ -150,11 +150,11 @@ export default function (component) {
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`)
             }
-            return response.text()
+            return response.json()
           })
           .then((data) => {
             if (idField) {
-              idField.value = data
+              idField.value = data.id
             }
 
             // Hide current step and show next if exists
@@ -193,7 +193,7 @@ export default function (component) {
         console.log('Submit button pressed - Step index:', currentStepIndex)
 
         // const submitInputsData = serializeInputs(currentStepEl)
-        const submitInputsData = serializeInputs(formInstance)
+        const submitInputsData = await serializeInputs(formInstance)
 
         // Log serialized data for debugging
         console.log('Submit button - Serialized submit data:', submitInputsData)
