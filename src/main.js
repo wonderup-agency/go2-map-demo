@@ -13,6 +13,10 @@ const components = [
     importFn: () => import('./components/forms/donation.js'),
   },
   {
+    selector: "[data-component='join-us-form']",
+    importFn: () => import('./components/forms/join-us.js'),
+  },
+  {
     selector: "[data-component='helpline-form']",
     importFn: () => import('./components/forms/helpline.js'),
   },
@@ -54,7 +58,7 @@ const components = [
   },
   {
     selector: "[data-component='smoking-calculator']",
-    importFn: () => import('./components/smokingCalculator.js'),
+    importFn: () => import('./components/smoking-calculator.js'),
   },
   // Add more components here
 ]

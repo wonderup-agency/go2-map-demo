@@ -26,7 +26,7 @@ export default function (component) {
     const failEl = formInstance.querySelector('.w-form-fail')
     const formEl = formInstance.querySelector('form')
 
-    formInstance.addEventListener('click', (e) => {
+    formInstance.addEventListener('click', async (e) => {
       const target = e.target
       const submitBtn = target.closest('[data-form="submit-btn"]')
       const buttonText = target.closest('.button_text')
@@ -39,7 +39,7 @@ export default function (component) {
         // Hide fail element on button press (validations will rerun)
         hideFail(failEl)
 
-        const submitInputsData = serializeInputs(formEl)
+        const submitInputsData = await serializeInputs(formEl)
 
         // Log serialized data for debugging
         console.log('Submit button - Serialized submit data:', submitInputsData)

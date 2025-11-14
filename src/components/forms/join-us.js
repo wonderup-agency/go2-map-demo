@@ -22,30 +22,11 @@ export default function (component) {
   const formInstances = component.forEach ? component : [component]
 
   formInstances.forEach((formInstance) => {
-    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/ax5pllsfmf5zl2lwfprq5og2locrkmyi'
+    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/k96lr6zofh8eoy6mvchfk3qvjj5ru7zu'
 
     const successEl = formInstance.querySelector('.w-form-done')
     const failEl = formInstance.querySelector('.w-form-fail')
     const formEl = formInstance.querySelector('form')
-
-    setupOtherFieldForSelect({
-      context: formInstance,
-      selectId: 'connection-to-lung-cancer',
-      otherValue: 'other-connection',
-      fieldName: 'other-connection-to-cancer',
-      labelName: 'Specify other connection',
-      placeholder: 'Specify your connection to lung cancer',
-      wrapperClass: 'multi-form14_field-wrapper',
-    })
-    setupOtherFieldForSelect({
-      context: formInstance,
-      selectId: 'hear-about-mom',
-      otherValue: 'other-way',
-      fieldName: 'hear-about-mom-other',
-      labelName: 'How did you hear about GO2',
-      placeholder: 'Specify how did you hear about GO2',
-      wrapperClass: 'multi-form14_field-wrapper',
-    })
 
     formInstance.addEventListener('click', async (e) => {
       const target = e.target
@@ -68,10 +49,17 @@ export default function (component) {
         const errors = []
 
         // Submit step validations
-        if (validator.isEmpty(submitInputsData['full-name'] || '')) {
+        if (validator.isEmpty(submitInputsData['first-name'] || '')) {
           errors.push({
-            fieldName: 'full-name',
-            error: 'Enter your full name.',
+            fieldName: 'first-name',
+            error: 'Enter your first name.',
+            appendAt: '.multi-form14_field-wrapper',
+          })
+        }
+        if (validator.isEmpty(submitInputsData['last-name'] || '')) {
+          errors.push({
+            fieldName: 'last-name',
+            error: 'Enter your last name.',
             appendAt: '.multi-form14_field-wrapper',
           })
         }
@@ -87,33 +75,6 @@ export default function (component) {
           errors.push({
             fieldName: 'phone',
             error: 'Enter a valid phone number (digits only, include area code)',
-            appendAt: '.multi-form14_field-wrapper',
-          })
-        }
-        if (!validator.isPostalCode(String(submitInputsData?.['zip-code'] || ''), 'any')) {
-          errors.push({
-            fieldName: 'zip-code',
-            error: 'Enter a valid ZIP or postal code',
-            appendAt: '.multi-form14_field-wrapper',
-          })
-        }
-        if (
-          'other-connection-to-cancer' in submitInputsData &&
-          validator.isEmpty(submitInputsData['other-connection-to-cancer'] || '')
-        ) {
-          errors.push({
-            fieldName: 'other-connection-to-cancer',
-            error: 'Tell us your connection to lung cancer',
-            appendAt: '.multi-form14_field-wrapper',
-          })
-        }
-        if (
-          'hear-about-mom-other' in submitInputsData &&
-          validator.isEmpty(submitInputsData['hear-about-mom-other'] || '')
-        ) {
-          errors.push({
-            fieldName: 'hear-about-mom-other',
-            error: 'Tell us how you heard about GO2',
             appendAt: '.multi-form14_field-wrapper',
           })
         }
