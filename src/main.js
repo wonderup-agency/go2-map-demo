@@ -60,6 +60,14 @@ const components = [
     selector: "[data-component='smoking-calculator']",
     importFn: () => import('./components/smoking-calculator.js'),
   },
+  {
+    selector: "[data-component='button-fixed']",
+    importFn: () => import('./components/button-fixed.js'),
+  },
+  {
+    selector: "[data-component='tabs']",
+    importFn: () => import('./components/tabs.js'),
+  },
   // Add more components here
 ]
 
