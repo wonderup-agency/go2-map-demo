@@ -244,7 +244,8 @@ export default async function (component) {
           <strong>${loc_name}</strong><br>
           ${loc_main_address}<br>
           ${loc_image ? `<img src="${loc_image}" alt="${loc_name}" style="width:100%;margin-top:4px;margin-bottom:4px;border-radius:4px;" />` : ''}
-          <a href="tel:${loc_main_phone}">${loc_main_phone}</a>
+          <a href="tel:${loc_main_phone}">${loc_main_phone}</a><br>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving" target="_blank">Get Directions on Google Maps</a>
         </div>
       `
 
