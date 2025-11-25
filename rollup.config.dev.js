@@ -5,6 +5,7 @@ import postcss from 'rollup-plugin-postcss'
 import commonjs from '@rollup/plugin-commonjs'
 import json from '@rollup/plugin-json'
 import url from '@rollup/plugin-url'
+import replace from '@rollup/plugin-replace'
 
 export default defineConfig({
   input: 'src/main.js',
@@ -30,6 +31,9 @@ export default defineConfig({
     url({
       include: ['**/*.png', '**/*.jpg', '**/*.svg'],
       limit: 0, // always copy files
+    }),
+    replace({
+      'process.env.NODE_ENV': JSON.stringify('development'),
     }),
   ],
 })

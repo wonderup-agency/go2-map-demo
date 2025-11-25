@@ -6,6 +6,7 @@ import postcss from 'rollup-plugin-postcss'
 import commonjs from '@rollup/plugin-commonjs'
 import json from '@rollup/plugin-json'
 import url from '@rollup/plugin-url'
+import replace from '@rollup/plugin-replace'
 
 export default defineConfig({
   input: 'src/main.js',
@@ -39,6 +40,9 @@ export default defineConfig({
       output: {
         comments: false,
       },
+    }),
+    replace({
+      'process.env.NODE_ENV': JSON.stringify('production'),
     }),
   ],
 })
