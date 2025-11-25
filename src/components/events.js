@@ -3,158 +3,159 @@
  * @param {HTMLElement} component
  */
 export default async function (component) {
-  const events = component.querySelectorAll('[data-events="event-element"]')
+  const eventsSource = component.querySelector('[data-events="source"]')
+  const events = Array.from(eventsSource.querySelectorAll('[data-events="event-element"]'))
+  const eventsList = component.querySelector('[data-events="list"]')
+  const eventTemplate = component.querySelector('[data-events="event-template"]')
+  const citiesArr = []
+  const select = component.querySelector('[data-events="select-cities"]')
+  const search = component.querySelector('[data-events="search"] input')
+  const nextBtn = component.querySelector('[data-events="next"]')
+  const prevBtn = component.querySelector('[data-events="prev"]')
+  const emptyState = component.querySelector('[data-events="empty"]')
+  const form = component.querySelector('form')
+  console.log(form)
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+    })
+  }
 
-  events.forEach((event, i) => {
-    const dayEl = event.querySelector('[data-events="DD"]')
-    const monthYearEl = event.querySelector('[data-events="MMM-YYYY"]')
-    const timeEl = event.querySelector('[data-custom="start-end-date"]')
+  events.forEach((event) => {
+    const dayElement = event.querySelector('[data-events="DD"]')
+    const monthYearElement = event.querySelector('[data-events="MMM-YYYY"]')
+    const timeElement = event.querySelector('[data-custom="start-end-date"]')
 
-    const startDateString = event.dataset.startDate
-    const endDateString = event.dataset.endDate
-    const timezoneString = event.dataset.timezone
+    const { startDate: startDateStr, endDate: endDateStr, timezone: timezoneId } = event.dataset
+    if (!startDateStr || !endDateStr || !timezoneId) return event.parentElement.remove()
 
-    if (startDateString == '' || endDateString == '') {
-      // event.parentElement.remove()
-      event.parentElement.setAttribute('data-delete', 'true')
-      return
-    }
+    const startDate = new Date(startDateStr)
+    const endDate = new Date(endDateStr)
+    const currentDate = new Date()
 
-    const startDate = new Date(startDateString)
-    const endDate = new Date(endDateString)
+    const getUTCDateStamp = (d) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
 
-    // Check if endDate is one day older than the current date in UTC
-    const now = new Date() // Current date/time in UTC
-    const utcEndDate = new Date(endDate.toISOString())
-    const utcCurrentDate = new Date(now.toISOString())
+    if (getUTCDateStamp(endDate) + 86400000 <= getUTCDateStamp(currentDate)) return event.parentElement.remove()
 
-    // Truncate to day for comparison (ignoring time)
-    const endDateDay = new Date(utcEndDate.getUTCFullYear(), utcEndDate.getUTCMonth(), utcEndDate.getUTCDate())
-    const currentDateDay = new Date(
-      utcCurrentDate.getUTCFullYear(),
-      utcCurrentDate.getUTCMonth(),
-      utcCurrentDate.getUTCDate()
-    )
-
-    // Check if endDate is exactly one day after current date
-    const oneDayInMs = 24 * 60 * 60 * 1000 // One day in milliseconds
-    if (endDateDay.getTime() + oneDayInMs <= currentDateDay.getTime()) {
-      // event.parentElement.remove()
-      event.parentElement.setAttribute('data-delete', 'true')
-      return
-    }
-
-    // Format day, month, year
-    const dateOptions = {
-      timeZone: timezoneString,
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezoneId,
       day: '2-digit',
       month: 'short',
       year: 'numeric',
-    }
-    const dateFormatter = new Intl.DateTimeFormat('en-US', dateOptions)
-    const startParts = dateFormatter.formatToParts(startDate)
+    })
 
-    const day = startParts.find((part) => part.type === 'day').value
-    const month = startParts.find((part) => part.type === 'month').value
-    const year = startParts.find((part) => part.type === 'year').value
+    const dateParts = Object.fromEntries(dateFormatter.formatToParts(startDate).map((part) => [part.type, part.value]))
 
-    dayEl.textContent = day
-    monthYearEl.textContent = `${month} ${year}`
+    dayElement.textContent = dateParts.day
+    monthYearElement.textContent = `${dateParts.month} ${dateParts.year}`
 
-    // Format time (HH:MM AM/PM)
-    const timeOptions = {
-      timeZone: timezoneString,
+    const timeFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezoneId,
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-    }
-    const timeFormatter = new Intl.DateTimeFormat('en-US', timeOptions)
+    })
 
-    // Format start and end times
-    const startTimeParts = timeFormatter.formatToParts(startDate)
-    const endTimeParts = timeFormatter.formatToParts(endDate)
+    const extractTime = (d) => Object.fromEntries(timeFormatter.formatToParts(d).map((part) => [part.type, part.value]))
 
-    // Extract hour, minute, and period (AM/PM)
-    const startHour = startTimeParts.find((part) => part.type === 'hour').value
-    const startMinute = startTimeParts.find((part) => part.type === 'minute').value
-    const startPeriod = startTimeParts.find((part) => part.type === 'dayPeriod').value
-    const endHour = endTimeParts.find((part) => part.type === 'hour').value
-    const endMinute = endTimeParts.find((part) => part.type === 'minute').value
-    const endPeriod = endTimeParts.find((part) => part.type === 'dayPeriod').value
+    const startTime = extractTime(startDate)
+    const endTime = extractTime(endDate)
 
-    // Combine into "HH:MMAM - HH:MMPM" format
-    const timeRange = `${startHour}:${startMinute}${startPeriod} - ${endHour}:${endMinute}${endPeriod}`
-    timeEl.textContent = timeRange
+    timeElement.textContent =
+      `${startTime.hour}:${startTime.minute}${startTime.dayPeriod} - ` +
+      `${endTime.hour}:${endTime.minute}${endTime.dayPeriod}`
+
+    const city = event.dataset.city || ''
+    if (city != '') citiesArr.push(city)
+    eventsList.appendChild(event)
   })
 
-  window.FinsweetAttributes ||= []
-  window.FinsweetAttributes.push([
-    'list',
-    (listInstances) => {
-      const citiesMap = new Map()
-      listInstances[0].items.value.forEach((item, i) => {
-        if (item.element.dataset.delete === 'true') {
-          listInstances[0].items.value = listInstances[0].items.value.filter((item) => {
-            return item.element.dataset.delete !== 'true'
-          })
-          return
-        }
-        // Collect city values (trimmed)
-        if (item.fields && item.fields.hasOwnProperty('city')) {
-          const raw = String(item.fields.city.value || '').trim()
-          if (!raw) return
-          const key = raw.toLowerCase()
-          if (!citiesMap.has(key)) {
-            citiesMap.set(key, raw) // preserve original casing for display
-          }
-        }
-      })
+  eventTemplate.remove()
+  eventsSource.remove()
+  const uniqueCities = [...new Set(citiesArr)].sort()
+  populateSelectCities(select, uniqueCities)
 
-      // Get unique cities and sort A-Z
-      const uniqueSortedCities = Array.from(citiesMap.values()).sort((a, b) =>
-        a.localeCompare(b, undefined, { sensitivity: 'base' })
-      )
-      populateSelectCities(uniqueSortedCities)
-    },
-  ])
+  let currentPage = 1
 
-  const populateSelectCities = (citiesArr) => {
-    const selectCities = document.querySelector('[data-events="select-cities"]')
-    if (selectCities) {
-      citiesArr.forEach((city) => {
-        const option = document.createElement('option')
-        option.value = city
-        option.textContent = city
-        selectCities.appendChild(option)
+  function updateDisplay() {
+    const selectedCity = (select.value || '').trim()
+    const searchText = (search.value || '').trim().toLowerCase()
+    const itemsPerPage = 3
+    const allEvents = Array.from(eventsList.querySelectorAll('[data-events="event-element"]'))
+    const visibleEvents = []
+
+    allEvents.forEach((event) => {
+      const eventCity = (event.dataset.city || '').trim()
+      const eventName = (event.dataset.name || '').trim().toLowerCase()
+      const cityMatch = selectedCity === '' || eventCity === selectedCity
+      const nameMatch = searchText === '' || eventName.includes(searchText)
+      if (cityMatch && nameMatch) {
+        visibleEvents.push(event)
+      } else {
+        event.classList.add('hide-event')
+        event.classList.remove('show-event')
+      }
+    })
+
+    const totalVisible = visibleEvents.length
+    const totalPages = Math.ceil(totalVisible / itemsPerPage)
+
+    if (totalVisible === 0) {
+      nextBtn.style.display = 'none'
+      prevBtn.style.display = 'none'
+      emptyState.style.display = 'block'
+    } else {
+      emptyState.style.display = 'none'
+      nextBtn.style.display = 'block'
+      prevBtn.style.display = 'block'
+
+      prevBtn.disabled = currentPage === 1
+      nextBtn.disabled = currentPage >= totalPages
+
+      visibleEvents.forEach((event, index) => {
+        if (index >= (currentPage - 1) * itemsPerPage && index < currentPage * itemsPerPage) {
+          event.classList.add('show-event')
+          event.classList.remove('hide-event')
+        } else {
+          event.classList.add('hide-event')
+          event.classList.remove('show-event')
+        }
       })
     }
   }
+
+  select.addEventListener('change', () => {
+    currentPage = 1
+    updateDisplay()
+  })
+
+  search.addEventListener('input', () => {
+    currentPage = 1
+    updateDisplay()
+  })
+
+  nextBtn.addEventListener('click', () => {
+    currentPage++
+    updateDisplay()
+  })
+
+  prevBtn.addEventListener('click', () => {
+    currentPage--
+    updateDisplay()
+  })
+
+  // Initial display setup
+  updateDisplay()
 }
 
-//   function debounce(func, wait) {
-//     let timeout
-//     return function (...args) {
-//       clearTimeout(timeout)
-//       timeout = setTimeout(() => {
-//         func(...args)
-//       }, wait)
-//     }
-//   }
-
-//   let firstIteration = true;
-
-// Define the debounced callback ONCE outside the hook
-// const debouncedCallback = debounce(() => {
-// console.log('Last iteration:', listInstances[0].items.value)
-// listInstances[0].items.value[1].element.querySelector('[data-events="DD"]').textContent = "WOW 1"
-// }, 300)
-
-// Add the pagination hook
-// listInstances[0].addHook('filter', (items) => {
-//   console.log('Pagination hook called, items:', items)
-//   if(firstIteration) {
-//     debouncedCallback(items)
-//   }
-
-//   firstIteration = false;
-// })
+function populateSelectCities(select, uniqueCities) {
+  if (select) {
+    uniqueCities.forEach((city) => {
+      const option = document.createElement('option')
+      option.value = city
+      option.textContent = city
+      select.appendChild(option)
+    })
+  }
+}
