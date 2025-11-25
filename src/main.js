@@ -1,6 +1,10 @@
 // Define components with their selectors and import functions
 const components = [
   {
+    selector: "[data-component='global-glossary']",
+    importFn: () => import('./components/tooltip.js'),
+  },
+  {
     selector: "[data-component='events']",
     importFn: () => import('./components/events.js'),
   },
