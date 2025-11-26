@@ -1,3 +1,4 @@
+// path: src/tabs/initTabs.js
 import { gsap } from 'gsap'
 
 /**
@@ -22,6 +23,8 @@ export default function initTabs(component) {
     }
 
     wrappers.forEach((wrapper, wIdx) => {
+      normalizeWrapperSlots(wrapper)
+
       const wrapperId = `${instanceId}/${wIdx}`
       const contentItems = wrapper.querySelectorAll('[data-tabs="content-item"]')
       const visualItems = wrapper.querySelectorAll('[data-tabs="visual-item"]')
@@ -36,8 +39,10 @@ export default function initTabs(component) {
 
       const autoplay = wrapper.dataset.tabsAutoplay === 'true'
       const autoplayDuration = Number.parseInt(wrapper.dataset.tabsAutoplayDuration, 10) || 5000
+      const autoplayQuery = wrapper.dataset.tabsAutoplayQuery || '(min-width: 1024px)'
+      const mql = window.matchMedia ? window.matchMedia(autoplayQuery) : null
+      const canAutoplay = () => autoplay && (!!mql ? mql.matches : true) // Why: disable below tablet by default
 
-      // Why: stable indexing and easier debugging
       contentItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
       visualItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
 
@@ -45,20 +50,36 @@ export default function initTabs(component) {
       let activeVisual = null
       let isAnimating = false
       let progressBarTween = null
+      let hoverBound = false
 
       console.debug(`[tabs:${wrapperId}] init`, {
         contentCount: contentItems.length,
         visualCount: visualItems.length,
         autoplay,
         autoplayDuration,
+        autoplayQuery,
       })
 
+      hardReset(wrapper)
+
+      function bindHover() {
+        if (hoverBound || !canAutoplay()) return
+        wrapper.addEventListener('mouseenter', hoverIn)
+        wrapper.addEventListener('mouseleave', hoverOut)
+        hoverBound = true
+      }
+      function unbindHover() {
+        if (!hoverBound) return
+        wrapper.removeEventListener('mouseenter', hoverIn)
+        wrapper.removeEventListener('mouseleave', hoverOut)
+        hoverBound = false
+      }
+
       function startProgressBar(index) {
-        if (!autoplay) return
+        if (!canAutoplay()) return
         progressBarTween?.kill()
         const bar = contentItems[index]?.querySelector('[data-tabs="item-progress"]')
         if (!bar) return
-
         gsap.set(bar, { scaleX: 0, transformOrigin: 'left center' })
         progressBarTween = gsap.to(bar, {
           scaleX: 1,
@@ -69,6 +90,15 @@ export default function initTabs(component) {
             console.debug(`[tabs:${wrapperId}] progress complete`, { index })
             if (!isAnimating) switchTab((index + 1) % contentItems.length)
           },
+        })
+      }
+
+      function stopProgressBar() {
+        progressBarTween?.kill()
+        progressBarTween = null
+        contentItems.forEach((item) => {
+          const bar = item.querySelector('[data-tabs="item-progress"]')
+          if (bar) gsap.set(bar, { scaleX: 0, transformOrigin: 'left center' })
         })
       }
 
@@ -96,15 +126,24 @@ export default function initTabs(component) {
         const outgoingBar = outgoingContent?.querySelector('[data-tabs="item-progress"]')
         const incomingBar = incomingContent.querySelector('[data-tabs="item-progress"]')
 
+        visualItems.forEach((el) => {
+          if (el !== incomingVisual) {
+            el.classList.remove('active')
+            gsap.set(el, { autoAlpha: 0, xPercent: 3 })
+          }
+        })
+        contentItems.forEach((el) => {
+          if (el !== incomingContent) el.classList.remove('active')
+        })
+
         incomingContent.classList.add('active')
         incomingVisual.classList.add('active')
-        outgoingContent?.classList.remove('active')
-        outgoingVisual?.classList.remove('active')
 
         console.debug(`[tabs:${wrapperId}] switching`, {
           from: outgoingContent ? Number(outgoingContent.dataset.tabIndex) : null,
           to: Number(incomingContent.dataset.tabIndex),
         })
+        logActivePair(wrapperId, incomingContent, incomingVisual)
 
         const tl = gsap.timeline({
           defaults: { duration: 0.65, ease: 'power3' },
@@ -128,7 +167,6 @@ export default function initTabs(component) {
           .set(incomingBar, { scaleX: 0, transformOrigin: 'left center' }, 0)
       }
 
-      // Delegated click: supports dynamic content and prevents binding only first block
       const onClick = (ev) => {
         const item = ev.target && /** @type {HTMLElement} */ (ev.target).closest?.('[data-tabs="content-item"]')
         if (!item || !wrapper.contains(item)) return
@@ -137,26 +175,38 @@ export default function initTabs(component) {
         if (item !== activeContent) switchTab(i)
       }
 
-      // Hover pause/resume
       const hoverIn = () => progressBarTween?.pause()
       const hoverOut = () => progressBarTween?.resume()
 
-      wrapper.addEventListener('click', onClick)
-      if (autoplay) {
-        wrapper.addEventListener('mouseenter', hoverIn)
-        wrapper.addEventListener('mouseleave', hoverOut)
+      function onAutoplayChange() {
+        if (canAutoplay()) {
+          bindHover()
+          if (activeContent) startProgressBar(Number(activeContent.dataset.tabIndex))
+        } else {
+          unbindHover()
+          stopProgressBar()
+        }
       }
 
-      // Initial state
+      wrapper.addEventListener('click', onClick)
+      bindHover()
+      mql?.addEventListener?.('change', onAutoplayChange)
+      onAutoplayChange()
+
       switchTab(0)
 
-      // Register for debugging and cleanup
       const state = {
         get index() {
           return activeContent ? Number(activeContent.dataset.tabIndex) : -1
         },
         get count() {
           return contentItems.length
+        },
+        getActiveContent() {
+          return activeContent
+        },
+        getActiveVisual() {
+          return activeVisual
         },
       }
 
@@ -165,10 +215,8 @@ export default function initTabs(component) {
         state,
         cleanup: () => {
           wrapper.removeEventListener('click', onClick)
-          if (autoplay) {
-            wrapper.removeEventListener('mouseenter', hoverIn)
-            wrapper.removeEventListener('mouseleave', hoverOut)
-          }
+          unbindHover()
+          mql?.removeEventListener?.('change', onAutoplayChange)
           progressBarTween?.kill()
         },
       })
@@ -192,8 +240,67 @@ function toElements(input) {
   return []
 }
 
+function normalizeWrapperSlots(wrapper) {
+  // Why: keep styling/animations by using canonical containers
+  const firstVisualItem = wrapper.querySelector('[data-tabs="visual-item"]')
+  const firstContentItem = wrapper.querySelector('[data-tabs="content-item"]')
+  const visualParent = firstVisualItem?.parentElement || null
+  const contentParent = firstContentItem?.parentElement || null
+
+  const moveChildren = (slotEl, selector, targetParent) => {
+    if (!slotEl) return
+    const dest = targetParent || slotEl.parentElement
+    if (!dest) return
+    const nodes = Array.from(slotEl.querySelectorAll(selector))
+    nodes.forEach((node) => {
+      if (node.parentElement !== dest) dest.appendChild(node)
+    })
+    if (!slotEl.querySelector('[data-tabs="visual-item"], [data-tabs="content-item"]')) slotEl.remove()
+  }
+
+  wrapper.querySelectorAll('[data-tabs="visual-slot"]').forEach((slot) => {
+    moveChildren(slot, '[data-tabs="visual-item"]', visualParent)
+  })
+  wrapper.querySelectorAll('[data-tabs="links-slot"]').forEach((slot) => {
+    moveChildren(slot, '[data-tabs="content-item"]', contentParent)
+  })
+}
+
+/**
+ * Ensures no pre-existing .active or inline styles keep items visible.
+ * @param {HTMLElement} wrapper
+ */
+function hardReset(wrapper) {
+  const visuals = wrapper.querySelectorAll('[data-tabs="visual-item"]')
+  const contents = wrapper.querySelectorAll('[data-tabs="content-item"]')
+  visuals.forEach((el) => el.classList.remove('active'))
+  contents.forEach((el) => el.classList.remove('active'))
+  gsap.set(visuals, { autoAlpha: 0, xPercent: 3 })
+  gsap.set(wrapper.querySelectorAll('[data-tabs="item-details"]'), { height: 0 })
+}
+
+/** Debug identity helpers */
+function infoForContent(el) {
+  const index = Number(el?.dataset?.tabIndex ?? -1)
+  const id = el?.id || null
+  const heading = el?.querySelector('h3')?.textContent?.trim() || null
+  return { index, id, heading }
+}
+function infoForVisual(el) {
+  const index = Number(el?.dataset?.tabIndex ?? -1)
+  const id = el?.id || null
+  const img = el?.querySelector('img')?.getAttribute('src') || null
+  return { index, id, img }
+}
+function logActivePair(wrapperId, contentEl, visualEl) {
+  const contentInfo = infoForContent(contentEl)
+  const visualInfo = infoForVisual(visualEl)
+  console.groupCollapsed(`[tabs:${wrapperId}/0] active`)
+  console.table({ content: contentInfo, visual: visualInfo })
+  console.groupEnd()
+}
+
 function attachDebugger(instanceId, registry) {
-  // Why: quick visibility of multiple-tab pages
   const api = window.debugTabs || (window.debugTabs = {})
   api.list = () => registry.map((r) => ({ wrapperId: r.wrapperId, index: r.state.index, count: r.state.count }))
   api.next = (wrapperId) => jump(wrapperId, +1)
@@ -201,15 +308,30 @@ function attachDebugger(instanceId, registry) {
   api.go = (wrapperId, i) => {
     const entry = registry.find((r) => r.wrapperId === wrapperId)
     if (!entry) return console.warn('[tabs] Invalid wrapperId', wrapperId)
-    const root =
-      document.querySelector(`[data-tabs="wrapper"]`)?.closest(`[data-tabs="wrapper"]`)?.ownerDocument || document
-    const wrappers = root.querySelectorAll('[data-tabs="wrapper"]') // naive resolver for demo
-    const idx = Number(i)
-    if (Number.isNaN(idx)) return console.warn('[tabs] Invalid index', i)
     const wrapperEl = findWrapperById(wrapperId)
     if (!wrapperEl) return console.warn('[tabs] Wrapper element not found', wrapperId)
+    const idx = Number(i)
+    if (Number.isNaN(idx)) return console.warn('[tabs] Invalid index', i)
     const items = wrapperEl.querySelectorAll('[data-tabs="content-item"]')
     items[idx]?.dispatchEvent(new Event('click', { bubbles: true }))
+  }
+  api.active = (wrapperId) => {
+    const entry = registry.find((r) => r.wrapperId === wrapperId)
+    if (!entry) return null
+    return {
+      wrapperId,
+      index: entry.state.index,
+      content: infoForContent(entry.state.getActiveContent?.()),
+      visual: infoForVisual(entry.state.getActiveVisual?.()),
+    }
+  }
+  api.log = (wrapperId) => {
+    const snap = api.active(wrapperId)
+    if (!snap) return console.warn('[tabs] Invalid wrapperId', wrapperId)
+    console.group(`[tabs:${wrapperId}] active snapshot`)
+    console.table({ content: snap.content, visual: snap.visual })
+    console.groupEnd()
+    return snap
   }
 
   function jump(wrapperId, delta) {
@@ -223,11 +345,8 @@ function attachDebugger(instanceId, registry) {
   }
 
   function findWrapperById(wrapperId) {
-    // Why: best-effort lookup using ordinal part `${instanceId}/${wIdx}`
     const ordinal = Number(wrapperId.split('/')[1] || 0)
     const all = document.querySelectorAll('[data-tabs="wrapper"]')
     return all[ordinal] || null
   }
-
-  console.info(`[tabs:${instanceId}] debugger attached. Use: debugTabs.list()`)
 }

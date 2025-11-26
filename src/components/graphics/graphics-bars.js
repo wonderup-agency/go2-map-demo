@@ -1,6 +1,7 @@
 import * as am5 from '@amcharts/amcharts5'
 import * as am5xy from '@amcharts/amcharts5/xy'
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated'
+
 /**
  *
  * @param {HTMLElement} component
@@ -8,16 +9,26 @@ import am5themes_Animated from '@amcharts/amcharts5/themes/Animated'
 export default async function (component) {
   am5.ready(function () {
     document.querySelectorAll('[data-graphic-type="bars"]').forEach((el) => {
+      // Responsive height: 20rem only on mobile
+      const applyResponsiveHeight = () => {
+        if (window.innerWidth < 768) {
+          el.style.height = '20rem'
+        } else {
+          el.style.height = '' // use default / CSS height
+        }
+      }
+
+      applyResponsiveHeight()
+      window.addEventListener('resize', applyResponsiveHeight)
+
       const root = am5.Root.new(el)
       root.setThemes([am5themes_Animated.new(root)])
 
-      // Colors
       const BACKGROUND = am5.color(el.dataset.graphicBackgroundColor || '#1B2155')
       const BAR_COLOR = am5.color(el.dataset.graphicBarColor || '#B9DDE6')
       const TEXT_COLOR = am5.color(el.dataset.graphicTextColor || '#FFFFFF')
       const BADGE_BG = am5.color(el.dataset.graphicBadgeBg || '#2C3495')
 
-      // Data
       const data = []
       for (let i = 1; i <= 4; i++) {
         const label = el.dataset[`graphicItem${i}Label`]
@@ -25,7 +36,6 @@ export default async function (component) {
         if (label && !isNaN(value)) data.push({ category: label, value })
       }
 
-      // Chart base
       const chart = root.container.children.push(
         am5xy.XYChart.new(root, {
           layout: root.verticalLayout,
@@ -106,7 +116,7 @@ export default async function (component) {
         tooltipText: '{category}: {valueY}%',
       })
 
-      // Create badges after render
+      // Badges
       series.events.on('datavalidated', () => {
         series.dataItems.forEach((dataItem) => {
           const column = dataItem.get('graphics')

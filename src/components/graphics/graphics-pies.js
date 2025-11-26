@@ -22,7 +22,6 @@ export default async function (component) {
       percentage: parseFloat(el.getAttribute('data-graphic-item1-percentage') || 15),
       url: el.getAttribute('data-graphic-item1-url') || '/lung-cancer/types-of-lung-cancer/small-cell-lung-cancer',
     }
-    console.log(document.querySelector('[data-graphic-item1-url]'))
     const item2 = {
       label: el.getAttribute('data-graphic-item2-label') || 'Item 2',
       percentage: parseFloat(el.getAttribute('data-graphic-item2-percentage') || 85),
@@ -50,7 +49,6 @@ export default async function (component) {
       const root = am5.Root.new(element)
       root.setThemes([am5themes_Animated.new(root)])
 
-      // Colors
       const COLOR_LABEL = am5.color(am5.Color.fromString(labelColor))
       const COLOR_BORDER = am5.color(am5.Color.fromString(sliceBorderColor))
       const COLOR_SLICE_1 = am5.color(am5.Color.fromString(sliceFillColors[0]))
@@ -58,8 +56,6 @@ export default async function (component) {
 
       const REM = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
       const OFFSET = Math.round(2.5 * REM)
-
-      // Chart container
 
       const chart = root.container.children.push(
         am5percent.PieChart.new(root, {
@@ -69,7 +65,6 @@ export default async function (component) {
         })
       )
 
-      // Series
       const series = chart.series.push(
         am5percent.PieSeries.new(root, {
           valueField: 'value',
@@ -81,7 +76,6 @@ export default async function (component) {
 
       series.get('colors').set('colors', [COLOR_SLICE_1, COLOR_SLICE_2])
 
-      // Slice borders
       series.slices.template.setAll({
         stroke: COLOR_BORDER,
         strokeWidth: 10,
@@ -92,7 +86,6 @@ export default async function (component) {
       series.slices.template.set('toggleKey', undefined)
       series.slices.template.events.on('pointerdown', (ev) => ev.event?.stopPropagation?.())
 
-      // Labels
       series.labelsContainer.setAll({ layer: 100 })
       series.ticksContainer.setAll({ layer: 90 })
 
@@ -101,7 +94,7 @@ export default async function (component) {
         populateText: true,
         inside: false,
         radius: OFFSET,
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: '600',
         fill: COLOR_LABEL,
         paddingLeft: Math.round(1 * REM),
@@ -110,9 +103,11 @@ export default async function (component) {
         paddingBottom: Math.round(0.5 * REM),
         interactive: true,
         cursorOverStyle: 'pointer',
+        centerX: am5.p50,
+        textAlign: 'center',
+        oversizedBehavior: 'wrap',
       })
 
-      // Hover animation (300ms ease)
       series.events.on('datavalidated', () => {
         series.dataItems.forEach((di) => {
           const label = di.get('label')
@@ -131,7 +126,6 @@ export default async function (component) {
           })
           label.set('background', bg)
 
-          // Hover in
           label.events.on('pointerover', () => {
             bg.animate({
               key: 'fill',
@@ -147,7 +141,6 @@ export default async function (component) {
             })
           })
 
-          // Hover out
           label.events.on('pointerout', () => {
             bg.animate({
               key: 'fill',
@@ -165,16 +158,13 @@ export default async function (component) {
         })
       })
 
-      // Clickable labels
       series.labels.template.events.on('pointerdown', (ev) => {
         const url = ev.target.dataItem?.dataContext?.url
         if (url) window.open(url, 'noopener,noreferrer')
       })
 
-      // Data
       series.data.setAll(data)
 
-      // % inside slices
       series.bullets.push(function (root, series, dataItem) {
         const index = series.dataItems.indexOf(dataItem)
         const fillColor = index === 0 ? am5.color(0xffffff) : COLOR_LABEL
@@ -192,7 +182,58 @@ export default async function (component) {
         })
       })
 
-      // Initial animation
+      const applyResponsiveLayout = () => {
+        if (root.isDisposed()) return
+
+        const width = element.offsetWidth || root.dom.clientWidth || window.innerWidth
+
+        let radiusPct
+        let labelRadiusFactor
+        let labelFontSize
+        let maxWidthFactor
+        let heightRem
+
+        if (width < 480) {
+          radiusPct = 75
+          labelRadiusFactor = 0.55
+          labelFontSize = 14
+          maxWidthFactor = 0.85
+          heightRem = 15
+        } else if (width < 768) {
+          radiusPct = 78
+          labelRadiusFactor = 0.8
+          labelFontSize = 16
+          maxWidthFactor = 0.8
+          heightRem = 32
+        } else {
+          radiusPct = 80
+          labelRadiusFactor = 1
+          labelFontSize = 18
+          maxWidthFactor = 0.7
+          heightRem = 38.75
+        }
+
+        const labelRadius = OFFSET * labelRadiusFactor
+        const maxWidth = width * maxWidthFactor
+
+        series.set('radius', am5.percent(radiusPct))
+        series.labels.template.setAll({
+          radius: labelRadius,
+          fontSize: labelFontSize,
+          maxWidth,
+        })
+
+        element.style.height = `${heightRem}rem`
+      }
+
+      applyResponsiveLayout()
+
+      window.addEventListener('resize', () => {
+        if (root.isDisposed()) return
+        root.resize()
+        root.events.once('frameended', applyResponsiveLayout)
+      })
+
       series.appear(700)
       chart.appear(700, 50)
     })
