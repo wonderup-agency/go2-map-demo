@@ -8,7 +8,7 @@ import { gsap } from 'gsap'
  * @returns {() => void | undefined}
  */
 export default function initTabs(component) {
-  console.log("initTabs")
+  console.log('initTabs')
   const roots = toElements(component)
   if (!roots.length) return
 
@@ -215,7 +215,14 @@ function measurePairHeight(contentEl, visualEl) {
 
   // Ensure both are measurable and fully visible for the probe.
   gsap.set(contentEl, { position: 'absolute', left: -99999, visibility: 'hidden', display: 'block' })
-  gsap.set(visualEl, { position: 'absolute', left: -99999, visibility: 'hidden', display: 'block', autoAlpha: 1, xPercent: 0 })
+  gsap.set(visualEl, {
+    position: 'absolute',
+    left: -99999,
+    visibility: 'hidden',
+    display: 'block',
+    autoAlpha: 1,
+    xPercent: 0,
+  })
 
   // Open details to capture full natural content height.
   const details = contentEl.querySelector('[data-tabs="item-details"]')

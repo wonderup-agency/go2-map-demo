@@ -1,15 +1,15 @@
-import { h as hideFail, s as serializeInputs, v as validator, c as clearStepsErrors, a as appendStepsErrors, b as setButtonLoading, d as hideForm, e as showSuccess, f as showFail, r as resetButton } from './index-OSas_5PK.js';
-import './main-C3aM1ogg.js';
+import { h as hideFail, s as serializeInputs, v as validator, c as clearStepsErrors, a as appendStepsErrors, b as setButtonLoading, d as hideForm, e as showSuccess, f as showFail, r as resetButton } from './index-Bh2J_x3e.js';
+import './main-CzSljL9I.js';
 
 /**
  * Handles form submission for a multi-step form component.
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
-function including (component) {
+function joinUs (component) {
   const formInstances = component.forEach ? component : [component];
 
   formInstances.forEach((formInstance) => {
-    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/vt23go8uc23q8emcv6jc3nqriswhtnyr';
+    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/k96lr6zofh8eoy6mvchfk3qvjj5ru7zu';
 
     const successEl = formInstance.querySelector('.w-form-done');
     const failEl = formInstance.querySelector('.w-form-fail');
@@ -36,24 +36,31 @@ function including (component) {
         const errors = [];
 
         // Submit step validations
-        if (validator.isEmpty(submitInputsData['Including-GO2-Name'] || '')) {
+        if (validator.isEmpty(submitInputsData['first-name'] || '')) {
           errors.push({
-            fieldName: 'Including-GO2-Name',
-            error: 'Enter your full name.',
+            fieldName: 'first-name',
+            error: 'Enter your first name.',
             appendAt: '.multi-form14_field-wrapper',
           });
         }
-        if (!validator.isEmail(submitInputsData['Including-GO2-Email'] || '')) {
+        if (validator.isEmpty(submitInputsData['last-name'] || '')) {
           errors.push({
-            fieldName: 'Including-GO2-Email',
+            fieldName: 'last-name',
+            error: 'Enter your last name.',
+            appendAt: '.multi-form14_field-wrapper',
+          });
+        }
+        if (!validator.isEmail(submitInputsData['email'] || '')) {
+          errors.push({
+            fieldName: 'email',
             error: 'Enter a valid email address (example: name@email.com)',
             appendAt: '.multi-form14_field-wrapper',
           });
         }
-        const phone = submitInputsData['Including-GO2-Phone'] || '';
+        const phone = submitInputsData['phone'] || '';
         if (!validator.isMobilePhone(phone, 'any')) {
           errors.push({
-            fieldName: 'Including-GO2-Phone',
+            fieldName: 'phone',
             error: 'Enter a valid phone number (digits only, include area code)',
             appendAt: '.multi-form14_field-wrapper',
           });
@@ -98,5 +105,5 @@ function including (component) {
   });
 }
 
-export { including as default };
-//# sourceMappingURL=including-B8ecwiQh.js.map
+export { joinUs as default };
+//# sourceMappingURL=join-us-DAC232cx.js.map

@@ -1,34 +1,19 @@
-import { g as setupOtherFieldForSelect, h as hideFail, s as serializeInputs, v as validator, c as clearStepsErrors, a as appendStepsErrors, b as setButtonLoading, d as hideForm, e as showSuccess, f as showFail, r as resetButton } from './index-OSas_5PK.js';
-import './main-C3aM1ogg.js';
+import { h as hideFail, s as serializeInputs, v as validator, c as clearStepsErrors, a as appendStepsErrors, b as setButtonLoading, d as hideForm, e as showSuccess, f as showFail, r as resetButton } from './index-Bh2J_x3e.js';
+import './main-CzSljL9I.js';
 
 /**
  * Handles form submission for a multi-step form component.
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
-function mindOverMatter (component) {
+function including (component) {
   const formInstances = component.forEach ? component : [component];
 
   formInstances.forEach((formInstance) => {
-    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/ax5pllsfmf5zl2lwfprq5og2locrkmyi';
+    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/vt23go8uc23q8emcv6jc3nqriswhtnyr';
 
     const successEl = formInstance.querySelector('.w-form-done');
     const failEl = formInstance.querySelector('.w-form-fail');
     const formEl = formInstance.querySelector('form');
-
-    setupOtherFieldForSelect({
-      context: formInstance,
-      selectId: 'connection-to-lung-cancer',
-      otherValue: 'other-connection',
-      fieldName: 'other-connection-to-cancer',
-      labelName: 'Specify other connection',
-      placeholder: 'Specify your connection to lung cancer'});
-    setupOtherFieldForSelect({
-      context: formInstance,
-      selectId: 'hear-about-mom',
-      otherValue: 'other-way',
-      fieldName: 'hear-about-mom-other',
-      labelName: 'How did you hear about GO2',
-      placeholder: 'Specify how did you hear about GO2'});
 
     formInstance.addEventListener('click', async (e) => {
       const target = e.target;
@@ -51,52 +36,25 @@ function mindOverMatter (component) {
         const errors = [];
 
         // Submit step validations
-        if (validator.isEmpty(submitInputsData['full-name'] || '')) {
+        if (validator.isEmpty(submitInputsData['Including-GO2-Name'] || '')) {
           errors.push({
-            fieldName: 'full-name',
+            fieldName: 'Including-GO2-Name',
             error: 'Enter your full name.',
             appendAt: '.multi-form14_field-wrapper',
           });
         }
-        if (!validator.isEmail(submitInputsData['email'] || '')) {
+        if (!validator.isEmail(submitInputsData['Including-GO2-Email'] || '')) {
           errors.push({
-            fieldName: 'email',
+            fieldName: 'Including-GO2-Email',
             error: 'Enter a valid email address (example: name@email.com)',
             appendAt: '.multi-form14_field-wrapper',
           });
         }
-        const phone = submitInputsData['phone'] || '';
+        const phone = submitInputsData['Including-GO2-Phone'] || '';
         if (!validator.isMobilePhone(phone, 'any')) {
           errors.push({
-            fieldName: 'phone',
+            fieldName: 'Including-GO2-Phone',
             error: 'Enter a valid phone number (digits only, include area code)',
-            appendAt: '.multi-form14_field-wrapper',
-          });
-        }
-        if (!validator.isPostalCode(String(submitInputsData?.['zip-code'] || ''), 'any')) {
-          errors.push({
-            fieldName: 'zip-code',
-            error: 'Enter a valid ZIP or postal code',
-            appendAt: '.multi-form14_field-wrapper',
-          });
-        }
-        if (
-          'other-connection-to-cancer' in submitInputsData &&
-          validator.isEmpty(submitInputsData['other-connection-to-cancer'] || '')
-        ) {
-          errors.push({
-            fieldName: 'other-connection-to-cancer',
-            error: 'Tell us your connection to lung cancer',
-            appendAt: '.multi-form14_field-wrapper',
-          });
-        }
-        if (
-          'hear-about-mom-other' in submitInputsData &&
-          validator.isEmpty(submitInputsData['hear-about-mom-other'] || '')
-        ) {
-          errors.push({
-            fieldName: 'hear-about-mom-other',
-            error: 'Tell us how you heard about GO2',
             appendAt: '.multi-form14_field-wrapper',
           });
         }
@@ -140,5 +98,5 @@ function mindOverMatter (component) {
   });
 }
 
-export { mindOverMatter as default };
-//# sourceMappingURL=mind-over-matter-ojDxaGeN.js.map
+export { including as default };
+//# sourceMappingURL=including-BqcCtA3k.js.map

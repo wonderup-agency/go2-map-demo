@@ -6084,7 +6084,7 @@ gsapWithCSS.core.Tween;
  * @returns {() => void | undefined}
  */
 function initTabs(component) {
-  console.log("initTabs");
+  console.log('initTabs');
   const roots = toElements(component);
   if (!roots.length) return
 
@@ -6291,7 +6291,14 @@ function measurePairHeight(contentEl, visualEl) {
 
   // Ensure both are measurable and fully visible for the probe.
   gsapWithCSS.set(contentEl, { position: 'absolute', left: -99999, visibility: 'hidden', display: 'block' });
-  gsapWithCSS.set(visualEl, { position: 'absolute', left: -99999, visibility: 'hidden', display: 'block', autoAlpha: 1, xPercent: 0 });
+  gsapWithCSS.set(visualEl, {
+    position: 'absolute',
+    left: -99999,
+    visibility: 'hidden',
+    display: 'block',
+    autoAlpha: 1,
+    xPercent: 0,
+  });
 
   // Open details to capture full natural content height.
   const details = contentEl.querySelector('[data-tabs="item-details"]');
@@ -6370,4 +6377,4 @@ function hardReset(wrapper) {
 }
 
 export { initTabs as default };
-//# sourceMappingURL=tabs-CbLCOZZQ.js.map
+//# sourceMappingURL=tabs-BiMcSEWi.js.map
