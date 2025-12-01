@@ -1,5 +1,5 @@
 import tippy from 'tippy.js'
-import 'tippy.js/dist/tippy.css' // Optional CSS for default styling
+import 'tippy.js/dist/tippy.css'
 
 /**
  * @param {HTMLElement} component
@@ -8,14 +8,15 @@ export default function (component) {
   if (!component || !(component instanceof HTMLElement)) return
 
   const dynItems = component.querySelectorAll('.w-dyn-item')
-  if (!dynItems || dynItems.length === 0) return
+  if (!dynItems.length) return
 
+  // BUILD GLOSSARY MAP
   const glossaryMap = {}
   dynItems.forEach((item) => {
     const name = (item.dataset.name || '').toLowerCase().trim()
-    const url = `/glossaries/${item.dataset.url || ''}`.trim()
     const defEl = item.querySelector('p')
     if (!name || !defEl) return
+    const url = `/glossaries/${item.dataset.url || ''}`.trim()
 
     glossaryMap[name] = {
       definition: defEl.textContent,
@@ -23,55 +24,80 @@ export default function (component) {
     }
   })
 
-  // const containerSelector = '.main-wrapper h1, .main-wrapper h2, .main-wrapper h3, .main-wrapper h4, .main-wrapper h5, .main-wrapper h6, .main-wrapper p';
-  const containerSelector = '.main-wrapper p'
+  const mainRoot = document.querySelector('.main-wrapper')
+  if (!mainRoot) {
+    console.log('glossary-tooltip: no .main-wrapper found')
+    return
+  }
 
   const terms = Object.keys(glossaryMap)
     .map((t) => t.trim())
     .sort((a, b) => b.length - a.length)
 
-  if (terms.length === 0) return
+  if (!terms.length) {
+    console.log('glossary-tooltip: no glossary terms found')
+    return
+  }
 
-  const patterns = terms.map((t) => {
-    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return `\\b${esc}\\b`
-  })
+  // escape regex characters
+  const patterns = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
 
-  const masterRegex = new RegExp(patterns.join('|'), 'gi')
+  const masterRegex = new RegExp(`\\b(?:${patterns.join('|')})\\b`, 'gi')
+  const testRegex = new RegExp(`\\b(?:${patterns.join('|')})\\b`, 'i')
 
-  // track which terms are already wrapped *per <section>*
-  const sectionMap = new WeakMap()
+  // GLOBAL ONE-TIME WRAP TRACKER
+  const wrappedGlobal = new Set()
+  const wrappedList = []
 
-  document.querySelectorAll(containerSelector).forEach((container) => {
+  // ATTRIBUTE ESCAPER
+  function escapeAttr(str = '') {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+  }
+
+  // COLLECT ONLY TEXT NODES WITHIN .main-wrapper p
+  const containerSelector = '.main-wrapper p'
+  const containers = mainRoot.querySelectorAll(containerSelector)
+
+  const textNodes = []
+
+  containers.forEach((container) => {
+    // skip paragraphs inside <a> or <button>
     if (container.closest('a,button')) return
 
-    // find section that this element belongs to
-    const section = container.closest('section')
-    if (!section) return
-
-    // get or create per-section set
-    let usedInSection = sectionMap.get(section)
-    if (!usedInSection) {
-      usedInSection = new Set()
-      sectionMap.set(section, usedInSection)
-    }
-
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
-    const textNodes = []
 
     while (walker.nextNode()) {
       const tn = walker.currentNode
+
       if (!tn.nodeValue || !tn.nodeValue.trim()) continue
-      if (tn.parentElement && tn.parentElement.closest('a,button')) continue
+      if (tn.parentElement.closest('a,button,[data-tooltip]')) continue
+
       textNodes.push(tn)
     }
+  })
 
-    if (textNodes.length === 0) return
+  // PROCESS TEXT NODES IN ORDER
+  textNodes.forEach((node) => {
+    const original = node.nodeValue
+
+    if (!testRegex.test(original)) return
 
     const replacer = (match) => {
       const key = match.toLowerCase()
-      if (usedInSection.has(key)) return match
-      usedInSection.add(key)
+
+      if (wrappedGlobal.has(key)) {
+        return match // do NOT wrap again
+      }
+
+      if (!glossaryMap[key]) return match // safety
+
+      wrappedGlobal.add(key)
+      wrappedList.push(key)
 
       const definition = escapeAttr(glossaryMap[key].definition)
       const url = escapeAttr(glossaryMap[key].url)
@@ -79,26 +105,30 @@ export default function (component) {
       return `<span data-tooltip="" data-definition="${definition}" data-url="${url}">${match}</span>`
     }
 
-    textNodes.forEach((node) => {
-      const original = node.nodeValue
+    // perform replacement
+    masterRegex.lastIndex = 0
+    const updated = original.replace(masterRegex, replacer)
 
-      if (!masterRegex.test(original)) {
-        masterRegex.lastIndex = 0
-        return
-      }
-
-      masterRegex.lastIndex = 0
-      const updated = original.replace(masterRegex, replacer)
-
-      if (updated !== original) {
-        const span = document.createElement('span')
-        span.innerHTML = updated
-        node.parentNode.replaceChild(span, node)
-      }
-    })
+    if (updated !== original) {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      const frag = range.createContextualFragment(updated)
+      node.parentNode.replaceChild(frag, node)
+    }
   })
 
-  document.querySelectorAll('[data-tooltip]').forEach((el) => {
+  if (wrappedList.length) {
+    console.log(`glossary-tooltip: wrapped terms → ${Array.from(new Set(wrappedList)).join(', ')}`)
+  } else {
+    console.log('glossary-tooltip: no new terms wrapped')
+  }
+
+  // INIT TIPPY FOR ALL TOOLTIP NODES
+  const tooltipNodes = mainRoot.querySelectorAll('[data-tooltip]')
+
+  tooltipNodes.forEach((el) => {
+    if (el._tippy) return // prevent duplicate init
+
     tippy(el, {
       content: el.dataset.definition,
       allowHTML: false,
@@ -108,13 +138,4 @@ export default function (component) {
       delay: [0, 0],
     })
   })
-}
-
-function escapeAttr(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
 }

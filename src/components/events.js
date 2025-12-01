@@ -14,7 +14,6 @@ export default async function (component) {
   const prevBtn = component.querySelector('[data-events="prev"]')
   const emptyState = component.querySelector('[data-events="empty"]')
   const form = component.querySelector('form')
-  console.log(form)
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault()
@@ -86,11 +85,16 @@ export default async function (component) {
     const visibleEvents = []
 
     allEvents.forEach((event) => {
-      const eventCity = (event.dataset.city || '').trim()
+      const eventCity = (event.dataset.city || '').trim().toLowerCase()
       const eventName = (event.dataset.name || '').trim().toLowerCase()
-      const cityMatch = selectedCity === '' || eventCity === selectedCity
-      const nameMatch = searchText === '' || eventName.includes(searchText)
-      if (cityMatch && nameMatch) {
+      const eventVenue = (event.dataset.venue || '').trim().toLowerCase()
+      const cityMatch = selectedCity === '' || event.dataset.city.trim() === selectedCity
+      const textMatch =
+        searchText === '' ||
+        eventName.includes(searchText) ||
+        eventCity.includes(searchText) ||
+        eventVenue.includes(searchText)
+      if (cityMatch && textMatch) {
         visibleEvents.push(event)
       } else {
         event.classList.add('hide-event')
