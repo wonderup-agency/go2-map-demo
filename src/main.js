@@ -72,6 +72,14 @@ const components = [
     selector: "[data-component='tabs']",
     importFn: () => import('./components/tabs.js'),
   },
+  {
+    selector: "[data-component='youtube-feed']",
+    importFn: () => import('./components/youtube-feed.js'),
+  },
+  {
+    selector: "[data-component='testimonial-slider']",
+    importFn: () => import('./components/testimonial-slider.js'),
+  },
   // Add more components here
 ]
 
