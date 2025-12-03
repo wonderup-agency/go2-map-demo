@@ -33,6 +33,8 @@ export default async function (component) {
     const leadingAttr = (container.dataset.leadingSeparator || 'true').toLowerCase().trim()
     const leadingSeparator = leadingAttr === 'true' || leadingAttr === '1' || leadingAttr === ''
 
+    const custom = (container.dataset.breadcrumbCustom || container.dataset.breadcrumCustom || '').trim()
+
     container.innerHTML = ''
 
     const rawPath = window.location.pathname.split('?')[0].split('#')[0]
@@ -45,10 +47,12 @@ export default async function (component) {
       .filter(Boolean)
 
     let includeHome, startIndex
+
     if (!segments.length) {
       const showHome = isAll || (hasNumericDepth && depthNum >= 1)
       if (showHome) {
         const items = [{ label: rootLabel, href: rootUrl }]
+        if (custom) items[items.length - 1].label = custom
         renderItems(container, items, linkClass, sepClass, leadingSeparator)
       }
       return
@@ -81,6 +85,10 @@ export default async function (component) {
       const href = isLastSeg ? null : `/${segments.slice(0, uptoIndex + 1).join('/')}`
       items.push({ label: toTitle(seg), href })
     })
+
+    if (custom && items.length) {
+      items[items.length - 1].label = custom
+    }
 
     renderItems(container, items, linkClass, sepClass, leadingSeparator)
   })
