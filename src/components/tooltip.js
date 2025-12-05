@@ -7,6 +7,18 @@ import 'tippy.js/dist/tippy.css'
 export default function (component) {
   if (!component || !(component instanceof HTMLElement)) return
 
+  const toggleTooltip = component.dataset.toggle || 'false'
+  if (toggleTooltip != 'true') {
+    console.log('glossary-tooltip: disabled on this page')
+    return
+  }
+
+  const mainRoot = document.querySelector('.main-wrapper')
+  if (!mainRoot) {
+    console.log('glossary-tooltip: no .main-wrapper found')
+    return
+  }
+
   const dynItems = component.querySelectorAll('.w-dyn-item')
   if (!dynItems.length) return
 
@@ -23,12 +35,6 @@ export default function (component) {
       url,
     }
   })
-
-  const mainRoot = document.querySelector('.main-wrapper')
-  if (!mainRoot) {
-    console.log('glossary-tooltip: no .main-wrapper found')
-    return
-  }
 
   const terms = Object.keys(glossaryMap)
     .map((t) => t.trim())
@@ -66,8 +72,8 @@ export default function (component) {
   const textNodes = []
 
   containers.forEach((container) => {
-    // skip paragraphs inside <a> or <button>
-    if (container.closest('a,button')) return
+    // skip paragraphs inside <a> or <button>, or if .no-tooltip class is present.
+    if (container.closest('a,button,.no-tooltip')) return
 
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
 
@@ -125,17 +131,21 @@ export default function (component) {
 
   // INIT TIPPY FOR ALL TOOLTIP NODES
   const tooltipNodes = mainRoot.querySelectorAll('[data-tooltip]')
+  const glossaryLink = `<a class="tooltip_link" href="/glossary">View full glossary <svg width=" 100%" height=" 100%" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M16.0037 9.41421L7.39712 18.0208L5.98291 16.6066L14.5895 8H7.00373V6H18.0037V17H16.0037V9.41421Z" fill="currentColor"/>
+</svg></a>`
 
   tooltipNodes.forEach((el) => {
     if (el._tippy) return // prevent duplicate init
 
     tippy(el, {
-      content: el.dataset.definition,
-      allowHTML: false,
+      content: `<span style="font-weight:400">${el.dataset.definition}<span/>${glossaryLink}`,
+      allowHTML: true,
       interactive: true,
       placement: 'auto',
       theme: 'glossary',
       delay: [0, 0],
+      // trigger:"click"
     })
   })
 }
