@@ -1,16 +1,19 @@
-import Swiper from 'swiper'
-import 'swiper/css'
+import Swiper from 'swiper/bundle'
+import 'swiper/css/bundle'
 
-export default async function (component) {
-  console.log('YouTube component init ✅', component)
+export default function (component) {
+  const root = component.closest('.testimonials_component') || document
+  const nextArrow = root.querySelector('[data-slider-arrow="next"]')
+  const prevArrow = root.querySelector('[data-slider-arrow="prev"]')
+
+  if (!nextArrow || !prevArrow) return
 
   new Swiper(component, {
     slidesPerView: 'auto',
     spaceBetween: 48,
-    watchOverflow: true,
     navigation: {
-      nextEl: '[data-slider-arrow="next"]',
-      prevEl: '[data-slider-arrow="prev"]',
+      nextEl: nextArrow,
+      prevEl: prevArrow,
     },
   })
 }
