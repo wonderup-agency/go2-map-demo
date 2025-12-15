@@ -2,13 +2,14 @@
 import { gsap } from 'gsap'
 
 /**
- * Tabs with autoplay/progress and dynamic wrapper height per active tab.
+ * Tabs with autoplay/progress; wrapper height tracks .tab-content__inner.
+ * Set a custom selector via data-tabs-height-target on the wrapper if needed.
  *
  * @param {HTMLElement | NodeList | HTMLElement[] | string} component
  * @returns {() => void | undefined}
  */
+console.log('test')
 export default function initTabs(component) {
-  console.log('initTabs')
   const roots = toElements(component)
   if (!roots.length) return
 
@@ -24,6 +25,10 @@ export default function initTabs(component) {
       const contentItems = wrapper.querySelectorAll('[data-tabs="content-item"]')
       const visualItems = wrapper.querySelectorAll('[data-tabs="visual-item"]')
       if (!contentItems.length || contentItems.length !== visualItems.length) return
+
+      const innerSel = wrapper.dataset.tabsHeightTarget || '.tab-content__inner'
+      const inner = wrapper.querySelector(innerSel)
+      if (!inner) return
 
       const autoplay = wrapper.dataset.tabsAutoplay === 'true'
       const autoplayDuration = Number.parseInt(wrapper.dataset.tabsAutoplayDuration || '5000', 10)
@@ -42,22 +47,20 @@ export default function initTabs(component) {
 
       hardReset(wrapper)
 
-      // Remove any CSS-fixed min-height to let JS control height.
+      // Let JS drive the height transition.
       wrapper.style.minHeight = ''
+      wrapper.style.overflow = 'hidden'
 
-      // Resize/update handlers for dynamic height
+      // Height recompute using the live inner container (no offscreen probing).
       const recomputeActiveHeight = () => {
-        const idx = activeContent ? Number(activeContent.dataset.tabIndex) : 0
-        const h = measurePairHeight(contentItems[idx], visualItems[idx])
-        if (h > 0) {
-          // Snap without animation on pure recompute to avoid jank on resize
-          gsap.set(wrapper, { height: h })
-        }
+        // Snap to current inner height to avoid jank on resize.
+        gsap.set(wrapper, { height: inner.offsetHeight })
       }
       const debouncedRecompute = debounce(recomputeActiveHeight, 100)
 
-      // Recompute on resize, image load, and fonts ready (text metrics can shift)
       window.addEventListener('resize', debouncedRecompute)
+
+      // Recompute when images load anywhere inside the wrapper.
       const imgs = wrapper.querySelectorAll('img')
       const imgListeners = []
       imgs.forEach((img) => {
@@ -65,6 +68,7 @@ export default function initTabs(component) {
         img.addEventListener('load', onload)
         imgListeners.push({ img, onload })
       })
+
       if (document.fonts?.ready) {
         document.fonts.ready.then(debouncedRecompute).catch(() => {})
       }
@@ -103,17 +107,7 @@ export default function initTabs(component) {
         isAnimating = true
         progressBarTween?.kill()
 
-        // Measure target height BEFORE animating content/visual, so wrapper grows/shrinks smoothly.
-        const targetH = measurePairHeight(incomingContent, incomingVisual)
-        if (targetH > 0) {
-          gsap.to(wrapper, { height: targetH, duration: 0.5, ease: 'power3.out' })
-        }
-
-        const outgoingContent = activeContent
-        const outgoingVisual = activeVisual
-        const outgoingBar = outgoingContent?.querySelector('[data-tabs="item-progress"]')
-        const incomingBar = incomingContent.querySelector('[data-tabs="item-progress"]')
-
+        // Deactivate others first.
         visualItems.forEach((el) => {
           if (el !== incomingVisual) {
             el.classList.remove('active')
@@ -124,8 +118,33 @@ export default function initTabs(component) {
           if (el !== incomingContent) el.classList.remove('active')
         })
 
+        // Activate incoming (needed so inner reflects the correct layout).
         incomingContent.classList.add('active')
         incomingVisual.classList.add('active')
+
+        // Open incoming details to auto temporarily to measure final inner height.
+        const detailsIn = incomingContent.querySelector('[data-tabs="item-details"]')
+        const restoreDetails = detailsIn ? snapshotInlineStyle(detailsIn) : null
+        if (detailsIn) gsap.set(detailsIn, { height: 'auto' })
+
+        // Read the target wrapper height from the live inner container.
+        const targetH = inner.offsetHeight
+
+        // Restore details back to 0 before animating the expand.
+        if (detailsIn) {
+          restoreDetails?.()
+          gsap.set(detailsIn, { height: 0 })
+        }
+
+        // Animate wrapper height towards the measured target.
+        if (targetH > 0) {
+          gsap.to(wrapper, { height: targetH, duration: 0.5, ease: 'power3.out' })
+        }
+
+        const outgoingContent = activeContent
+        const outgoingVisual = activeVisual
+        const outgoingBar = outgoingContent?.querySelector('[data-tabs="item-progress"]')
+        const incomingBar = incomingContent.querySelector('[data-tabs="item-progress"]')
 
         const tl = gsap.timeline({
           defaults: { duration: 0.65, ease: 'power3' },
@@ -134,6 +153,8 @@ export default function initTabs(component) {
             activeVisual = incomingVisual
             isAnimating = false
             startProgressBar(index)
+            // Final snap in case images/text reflowed during tween.
+            gsap.delayedCall(0, recomputeActiveHeight)
           },
         })
 
@@ -181,9 +202,8 @@ export default function initTabs(component) {
       mql?.addEventListener?.('change', onAutoplayChange)
       onAutoplayChange()
 
-      // Activate first tab and set initial wrapper height.
+      // First activation and initial wrapper height.
       switchTab(0)
-      // Ensure wrapper has the exact measured height after first paint.
       requestAnimationFrame(recomputeActiveHeight)
 
       cleanups.push(() => {
@@ -203,43 +223,7 @@ export default function initTabs(component) {
   return () => cleanups.forEach((c) => c())
 }
 
-/**
- * Measure natural height of a (content, visual) pair without disturbing layout.
- * Uses absolute off-screen positioning to let CSS compute full size.
- */
-function measurePairHeight(contentEl, visualEl) {
-  if (!contentEl || !visualEl) return 0
-
-  const restoreContent = snapshotInlineStyle(contentEl)
-  const restoreVisual = snapshotInlineStyle(visualEl)
-
-  // Ensure both are measurable and fully visible for the probe.
-  gsap.set(contentEl, { position: 'absolute', left: -99999, visibility: 'hidden', display: 'block' })
-  gsap.set(visualEl, {
-    position: 'absolute',
-    left: -99999,
-    visibility: 'hidden',
-    display: 'block',
-    autoAlpha: 1,
-    xPercent: 0,
-  })
-
-  // Open details to capture full natural content height.
-  const details = contentEl.querySelector('[data-tabs="item-details"]')
-  const restoreDetails = details ? snapshotInlineStyle(details) : null
-  if (details) gsap.set(details, { height: 'auto' })
-
-  // Use bounding rect to include transforms/line-height nuances.
-  const cRect = contentEl.getBoundingClientRect()
-  const vRect = visualEl.getBoundingClientRect()
-  const height = Math.max(cRect.height, vRect.height, contentEl.scrollHeight, visualEl.scrollHeight)
-
-  restoreContent()
-  restoreVisual()
-  if (restoreDetails) restoreDetails()
-  return Math.ceil(height)
-}
-
+/** Utils */
 function snapshotInlineStyle(el) {
   const prev = el.getAttribute('style')
   return () => {
@@ -248,7 +232,6 @@ function snapshotInlineStyle(el) {
   }
 }
 
-/** Small utils */
 function debounce(fn, wait) {
   let t = null
   return (...args) => {
