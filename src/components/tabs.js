@@ -8,7 +8,6 @@ import { gsap } from 'gsap'
  * @param {HTMLElement | NodeList | HTMLElement[] | string} component
  * @returns {() => void | undefined}
  */
-console.log('test')
 export default function initTabs(component) {
   const roots = toElements(component)
   if (!roots.length) return
