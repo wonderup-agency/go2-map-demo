@@ -8,5 +8,9 @@ export default async function (component) {
     slidesPerView: 'auto',
     spaceBetween: 48,
     watchOverflow: true,
+    navigation: {
+      nextEl: '[data-slider-arrow="next"]',
+      prevEl: '[data-slider-arrow="prev"]',
+    },
   })
 }
