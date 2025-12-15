@@ -2,13 +2,18 @@
 import { gsap } from 'gsap'
 
 /**
- * Tabs with autoplay/progress; wrapper height tracks .tab-content__inner.
- * Set a custom selector via data-tabs-height-target on the wrapper if needed.
+ * Tabs with autoplay/progress and dynamic height driven by .tab-content__inner
+ * Use data-tabs-height-target on the wrapper to override the selector.
+ * Comments explain "why".
  *
  * @param {HTMLElement | NodeList | HTMLElement[] | string} component
  * @returns {() => void | undefined}
  */
 export default function initTabs(component) {
+  return onReady(() => mount(component))
+}
+
+function mount(component) {
   const roots = toElements(component)
   if (!roots.length) return
 
@@ -29,6 +34,7 @@ export default function initTabs(component) {
       const inner = wrapper.querySelector(innerSel)
       if (!inner) return
 
+      // Autoplay setup
       const autoplay = wrapper.dataset.tabsAutoplay === 'true'
       const autoplayDuration = Number.parseInt(wrapper.dataset.tabsAutoplayDuration || '5000', 10)
       const autoplayQuery = wrapper.dataset.tabsAutoplayQuery || '(min-width: 1024px)'
@@ -46,32 +52,61 @@ export default function initTabs(component) {
 
       hardReset(wrapper)
 
-      // Let JS drive the height transition.
+      // JS controls height. Hidden overflow prevents bleed during tween.
       wrapper.style.minHeight = ''
       wrapper.style.overflow = 'hidden'
 
-      // Height recompute using the live inner container (no offscreen probing).
-      const recomputeActiveHeight = () => {
-        // Snap to current inner height to avoid jank on resize.
-        gsap.set(wrapper, { height: inner.offsetHeight })
-      }
-      const debouncedRecompute = debounce(recomputeActiveHeight, 100)
+      // --- Height measurement helpers (driven by .tab-content__inner) ---
+      const measureInnerHeight = (incomingContent) => {
+        if (!incomingContent) return inner.offsetHeight
 
+        // Open the incoming details to let inner grow to its natural size.
+        const details = incomingContent.querySelector('[data-tabs="item-details"]')
+        const restoreDetails = details ? snapshotInlineStyle(details) : null
+        if (details) gsap.set(details, { height: 'auto' })
+
+        // Use scrollHeight to capture full content, including margins-collapse edge cases.
+        const h = Math.max(inner.scrollHeight, inner.getBoundingClientRect().height)
+
+        // Restore details before we animate (so we can tween from 0 → auto).
+        if (details) {
+          restoreDetails?.()
+          gsap.set(details, { height: 0 })
+        }
+        return Math.ceil(h)
+      }
+
+      const recomputeActiveHeight = () => {
+        const idx = activeContent ? Number(activeContent.dataset.tabIndex) : 0
+        const h = measureInnerHeight(contentItems[idx])
+        if (h > 0) gsap.set(wrapper, { height: h })
+      }
+      const debouncedRecompute = debounce(recomputeActiveHeight, 80)
+
+      // Resize + images + fonts
       window.addEventListener('resize', debouncedRecompute)
 
-      // Recompute when images load anywhere inside the wrapper.
       const imgs = wrapper.querySelectorAll('img')
       const imgListeners = []
       imgs.forEach((img) => {
+        // Use decode when available to avoid zero-size during lazy stages.
         const onload = () => debouncedRecompute()
         img.addEventListener('load', onload)
+        img
+          .decode?.()
+          .then(debouncedRecompute)
+          .catch(() => {})
         imgListeners.push({ img, onload })
       })
-
       if (document.fonts?.ready) {
         document.fonts.ready.then(debouncedRecompute).catch(() => {})
       }
 
+      // Observe DOM mutations inside inner (accordions, async content, CMS)
+      const mo = new MutationObserver(() => debouncedRecompute())
+      mo.observe(inner, { childList: true, subtree: true, attributes: true, characterData: true })
+
+      // --- Progress bar / autoplay ---
       const startProgressBar = (index) => {
         if (!canAutoplay()) return
         progressBarTween?.kill()
@@ -117,25 +152,12 @@ export default function initTabs(component) {
           if (el !== incomingContent) el.classList.remove('active')
         })
 
-        // Activate incoming (needed so inner reflects the correct layout).
+        // Activate incoming so inner reflects the correct layout state.
         incomingContent.classList.add('active')
         incomingVisual.classList.add('active')
 
-        // Open incoming details to auto temporarily to measure final inner height.
-        const detailsIn = incomingContent.querySelector('[data-tabs="item-details"]')
-        const restoreDetails = detailsIn ? snapshotInlineStyle(detailsIn) : null
-        if (detailsIn) gsap.set(detailsIn, { height: 'auto' })
-
-        // Read the target wrapper height from the live inner container.
-        const targetH = inner.offsetHeight
-
-        // Restore details back to 0 before animating the expand.
-        if (detailsIn) {
-          restoreDetails?.()
-          gsap.set(detailsIn, { height: 0 })
-        }
-
-        // Animate wrapper height towards the measured target.
+        // Measure target height from the live inner container.
+        const targetH = measureInnerHeight(incomingContent)
         if (targetH > 0) {
           gsap.to(wrapper, { height: targetH, duration: 0.5, ease: 'power3.out' })
         }
@@ -146,25 +168,25 @@ export default function initTabs(component) {
         const incomingBar = incomingContent.querySelector('[data-tabs="item-progress"]')
 
         const tl = gsap.timeline({
-          defaults: { duration: 0.65, ease: 'power3' },
+          defaults: { duration: 0.6, ease: 'power3' },
           onComplete: () => {
             activeContent = incomingContent
             activeVisual = incomingVisual
             isAnimating = false
             startProgressBar(index)
-            // Final snap in case images/text reflowed during tween.
+            // One more snap after the tween to account for async image decode.
             gsap.delayedCall(0, recomputeActiveHeight)
           },
         })
 
         if (outgoingContent) {
           tl.set(outgoingBar, { transformOrigin: 'right center' }, 0)
-            .to(outgoingBar, { scaleX: 0, duration: 0.3 }, 0)
+            .to(outgoingBar, { scaleX: 0, duration: 0.25 }, 0)
             .to(outgoingVisual, { autoAlpha: 0, xPercent: 3 }, 0)
             .to(outgoingContent.querySelector('[data-tabs="item-details"]'), { height: 0 }, 0)
         }
 
-        tl.fromTo(incomingVisual, { autoAlpha: 0, xPercent: 3 }, { autoAlpha: 1, xPercent: 0 }, 0.2)
+        tl.fromTo(incomingVisual, { autoAlpha: 0, xPercent: 3 }, { autoAlpha: 1, xPercent: 0 }, 0.15)
           .fromTo(incomingContent.querySelector('[data-tabs="item-details"]'), { height: 0 }, { height: 'auto' }, 0)
           .set(incomingBar, { scaleX: 0, transformOrigin: 'left center' }, 0)
       }
@@ -201,7 +223,7 @@ export default function initTabs(component) {
       mql?.addEventListener?.('change', onAutoplayChange)
       onAutoplayChange()
 
-      // First activation and initial wrapper height.
+      // First activation and initial wrapper height after layout.
       switchTab(0)
       requestAnimationFrame(recomputeActiveHeight)
 
@@ -215,6 +237,7 @@ export default function initTabs(component) {
         progressBarTween?.kill()
         window.removeEventListener('resize', debouncedRecompute)
         imgListeners.forEach(({ img, onload }) => img.removeEventListener('load', onload))
+        mo.disconnect()
       })
     })
   })
@@ -222,10 +245,19 @@ export default function initTabs(component) {
   return () => cleanups.forEach((c) => c())
 }
 
-/** Utils */
+/** ——— Utilities ——— */
+function onReady(fn) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn, { once: true })
+  } else {
+    fn()
+  }
+}
+
 function snapshotInlineStyle(el) {
-  const prev = el.getAttribute('style')
+  const prev = el?.getAttribute?.('style')
   return () => {
+    if (!el) return
     if (prev == null) el.removeAttribute('style')
     else el.setAttribute('style', prev)
   }
