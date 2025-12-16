@@ -14,6 +14,7 @@ export default async function (component) {
   const prevBtn = component.querySelector('[data-events="prev"]')
   const emptyState = component.querySelector('[data-events="empty"]')
   const form = component.querySelector('form')
+
   if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault()
@@ -34,7 +35,6 @@ export default async function (component) {
     const currentDate = new Date()
 
     const getUTCDateStamp = (d) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-
     if (getUTCDateStamp(endDate) + 86400000 <= getUTCDateStamp(currentDate)) return event.parentElement.remove()
 
     const dateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -45,7 +45,6 @@ export default async function (component) {
     })
 
     const dateParts = Object.fromEntries(dateFormatter.formatToParts(startDate).map((part) => [part.type, part.value]))
-
     dayElement.textContent = dateParts.day
     monthYearElement.textContent = `${dateParts.month} ${dateParts.year}`
 
@@ -57,7 +56,6 @@ export default async function (component) {
     })
 
     const extractTime = (d) => Object.fromEntries(timeFormatter.formatToParts(d).map((part) => [part.type, part.value]))
-
     const startTime = extractTime(startDate)
     const endTime = extractTime(endDate)
 
@@ -66,7 +64,7 @@ export default async function (component) {
       `${endTime.hour}:${endTime.minute}${endTime.dayPeriod}`
 
     const city = event.dataset.city || ''
-    if (city != '') citiesArr.push(city)
+    if (city !== '') citiesArr.push(city)
     eventsList.appendChild(event)
   })
 
@@ -84,16 +82,24 @@ export default async function (component) {
     const allEvents = Array.from(eventsList.querySelectorAll('[data-events="event-element"]'))
     const visibleEvents = []
 
+    const tokens = searchText
+      ? searchText
+          .split('/')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : []
+
     allEvents.forEach((event) => {
       const eventCity = (event.dataset.city || '').trim().toLowerCase()
       const eventName = (event.dataset.name || '').trim().toLowerCase()
       const eventVenue = (event.dataset.venue || '').trim().toLowerCase()
-      const cityMatch = selectedCity === '' || event.dataset.city.trim() === selectedCity
+
+      const cityMatch = selectedCity === '' || (event.dataset.city || '').trim() === selectedCity
+
       const textMatch =
-        searchText === '' ||
-        eventName.includes(searchText) ||
-        eventCity.includes(searchText) ||
-        eventVenue.includes(searchText)
+        tokens.length === 0 ||
+        tokens.some((t) => eventName.includes(t) || eventCity.includes(t) || eventVenue.includes(t))
+
       if (cityMatch && textMatch) {
         visibleEvents.push(event)
       } else {
@@ -149,7 +155,30 @@ export default async function (component) {
     updateDisplay()
   })
 
-  // Initial display setup
+  if (!window.__walkRunButtonBound) {
+    window.__walkRunButtonBound = true
+
+    document.addEventListener('click', (e) => {
+      const buttonEl = e.target.closest('.button')
+      if (!buttonEl) return
+
+      const linkEl = buttonEl.querySelector('a.item-link[href^="#"]')
+      if (!linkEl) return
+
+      const href = linkEl.getAttribute('href') || ''
+      if (href !== '#events') return
+
+      e.preventDefault()
+
+      const target = document.querySelector(href)
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+      search.value = 'walk/run'
+      currentPage = 1
+      updateDisplay()
+    })
+  }
+
   updateDisplay()
 }
 
