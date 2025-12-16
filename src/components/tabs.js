@@ -2,11 +2,9 @@
 import { gsap } from 'gsap'
 
 /**
- * Tabs with autoplay/progress; wrapper height tracks .tab-content__inner.
- * Set a custom selector via data-tabs-height-target on the wrapper if needed.
- *
- * @param {HTMLElement | NodeList | HTMLElement[] | string} component
- * @returns {() => void | undefined}
+ * Tabs without autoplay; wrapper height tracks .tab-content__inner.
+ * Accordion behavior: clicking the same tab toggles close (enabled by default).
+ * Set data-tabs-collapsible="false" to always keep one open.
  */
 export default function initTabs(component) {
   const roots = toElements(component)
@@ -29,11 +27,7 @@ export default function initTabs(component) {
       const inner = wrapper.querySelector(innerSel)
       if (!inner) return
 
-      const autoplay = wrapper.dataset.tabsAutoplay === 'true'
-      const autoplayDuration = Number.parseInt(wrapper.dataset.tabsAutoplayDuration || '5000', 10)
-      const autoplayQuery = wrapper.dataset.tabsAutoplayQuery || '(min-width: 1024px)'
-      const mql = window.matchMedia ? window.matchMedia(autoplayQuery) : null
-      const canAutoplay = () => autoplay && (mql ? mql.matches : true)
+      const tabsCollapsible = wrapper.dataset.tabsCollapsible !== 'false' // default: true
 
       contentItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
       visualItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
@@ -41,25 +35,16 @@ export default function initTabs(component) {
       let activeContent = null
       let activeVisual = null
       let isAnimating = false
-      let progressBarTween = null
-      let hoverBound = false
 
       hardReset(wrapper)
 
-      // Let JS drive the height transition.
       wrapper.style.minHeight = ''
       wrapper.style.overflow = 'hidden'
 
-      // Height recompute using the live inner container (no offscreen probing).
-      const recomputeActiveHeight = () => {
-        // Snap to current inner height to avoid jank on resize.
-        gsap.set(wrapper, { height: inner.offsetHeight })
-      }
-      const debouncedRecompute = debounce(recomputeActiveHeight, 100)
-
+      const recomputeHeight = () => gsap.set(wrapper, { height: inner.offsetHeight })
+      const debouncedRecompute = debounce(recomputeHeight, 100)
       window.addEventListener('resize', debouncedRecompute)
 
-      // Recompute when images load anywhere inside the wrapper.
       const imgs = wrapper.querySelectorAll('img')
       const imgListeners = []
       imgs.forEach((img) => {
@@ -67,152 +52,137 @@ export default function initTabs(component) {
         img.addEventListener('load', onload)
         imgListeners.push({ img, onload })
       })
-
       if (document.fonts?.ready) {
         document.fonts.ready.then(debouncedRecompute).catch(() => {})
       }
 
-      const startProgressBar = (index) => {
-        if (!canAutoplay()) return
-        progressBarTween?.kill()
-        const bar = contentItems[index]?.querySelector('[data-tabs="item-progress"]')
-        if (!bar) return
-        gsap.set(bar, { scaleX: 0, transformOrigin: 'left center' })
-        progressBarTween = gsap.to(bar, {
-          scaleX: 1,
-          duration: autoplayDuration / 1000,
-          ease: 'power1.inOut',
-          onComplete: () => {
-            if (!isAnimating) switchTab((index + 1) % contentItems.length)
-          },
-        })
+      function getDetailsEls(scope) {
+        return Array.from(scope.querySelectorAll('[data-tabs="item-details"]'))
       }
 
-      const stopProgressBar = () => {
-        progressBarTween?.kill()
-        progressBarTween = null
-        contentItems.forEach((item) => {
-          const bar = item.querySelector('[data-tabs="item-progress"]')
-          if (bar) gsap.set(bar, { scaleX: 0, transformOrigin: 'left center' })
-        })
+      function closeDetails(scope, tlOrGsap = gsap) {
+        getDetailsEls(scope).forEach((el) =>
+          tlOrGsap.to ? tlOrGsap.to(el, { height: 0, duration: 0.3 }) : gsap.set(el, { height: 0 })
+        )
       }
 
-      function switchTab(index) {
-        const incomingContent = contentItems[index]
-        const incomingVisual = visualItems[index]
-        if (!incomingContent || !incomingVisual) return
-        if (isAnimating || incomingContent === activeContent) return
+      function openDetailsForMeasure(scope) {
+        const restores = []
+        getDetailsEls(scope).forEach((el) => {
+          restores.push(snapshotInlineStyle(el))
+          gsap.set(el, { height: 'auto' })
+        })
+        return () => restores.forEach((r) => r())
+      }
 
-        isAnimating = true
-        progressBarTween?.kill()
-
-        // Deactivate others first.
+      function hideAllVisualsExcept(keep) {
         visualItems.forEach((el) => {
-          if (el !== incomingVisual) {
+          if (el !== keep) {
             el.classList.remove('active')
             gsap.set(el, { autoAlpha: 0, xPercent: 3 })
           }
         })
-        contentItems.forEach((el) => {
-          if (el !== incomingContent) el.classList.remove('active')
-        })
+      }
 
-        // Activate incoming (needed so inner reflects the correct layout).
+      function deactivateAllContentsExcept(keep) {
+        contentItems.forEach((el) => {
+          if (el !== keep) {
+            el.classList.remove('active')
+            closeDetails(el)
+          }
+        })
+      }
+
+      function openTab(index) {
+        const incomingContent = contentItems[index]
+        const incomingVisual = visualItems[index]
+        if (!incomingContent || !incomingVisual) return
+        if (isAnimating) return
+
+        isAnimating = true
+
+        hideAllVisualsExcept(incomingVisual)
+        deactivateAllContentsExcept(incomingContent)
+
         incomingContent.classList.add('active')
         incomingVisual.classList.add('active')
 
-        // Open incoming details to auto temporarily to measure final inner height.
-        const detailsIn = incomingContent.querySelector('[data-tabs="item-details"]')
-        const restoreDetails = detailsIn ? snapshotInlineStyle(detailsIn) : null
-        if (detailsIn) gsap.set(detailsIn, { height: 'auto' })
-
-        // Read the target wrapper height from the live inner container.
+        const restore = openDetailsForMeasure(incomingContent)
         const targetH = inner.offsetHeight
+        restore()
+        getDetailsEls(incomingContent).forEach((el) => gsap.set(el, { height: 0 }))
 
-        // Restore details back to 0 before animating the expand.
-        if (detailsIn) {
-          restoreDetails?.()
-          gsap.set(detailsIn, { height: 0 })
-        }
-
-        // Animate wrapper height towards the measured target.
         if (targetH > 0) {
           gsap.to(wrapper, { height: targetH, duration: 0.5, ease: 'power3.out' })
         }
 
-        const outgoingContent = activeContent
-        const outgoingVisual = activeVisual
-        const outgoingBar = outgoingContent?.querySelector('[data-tabs="item-progress"]')
-        const incomingBar = incomingContent.querySelector('[data-tabs="item-progress"]')
-
         const tl = gsap.timeline({
-          defaults: { duration: 0.65, ease: 'power3' },
+          defaults: { duration: 0.55, ease: 'power3' },
           onComplete: () => {
             activeContent = incomingContent
             activeVisual = incomingVisual
             isAnimating = false
-            startProgressBar(index)
-            // Final snap in case images/text reflowed during tween.
-            gsap.delayedCall(0, recomputeActiveHeight)
+            gsap.delayedCall(0, recomputeHeight)
           },
         })
 
-        if (outgoingContent) {
-          tl.set(outgoingBar, { transformOrigin: 'right center' }, 0)
-            .to(outgoingBar, { scaleX: 0, duration: 0.3 }, 0)
-            .to(outgoingVisual, { autoAlpha: 0, xPercent: 3 }, 0)
-            .to(outgoingContent.querySelector('[data-tabs="item-details"]'), { height: 0 }, 0)
+        if (activeVisual && activeVisual !== incomingVisual) {
+          tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
         }
-
-        tl.fromTo(incomingVisual, { autoAlpha: 0, xPercent: 3 }, { autoAlpha: 1, xPercent: 0 }, 0.2)
-          .fromTo(incomingContent.querySelector('[data-tabs="item-details"]'), { height: 0 }, { height: 'auto' }, 0)
-          .set(incomingBar, { scaleX: 0, transformOrigin: 'left center' }, 0)
+        tl.fromTo(incomingVisual, { autoAlpha: 0, xPercent: 3 }, { autoAlpha: 1, xPercent: 0 }, 0.1).fromTo(
+          getDetailsEls(incomingContent),
+          { height: 0 },
+          { height: 'auto' },
+          0
+        )
       }
 
-      const onClick = (ev) => {
+      function collapseActive() {
+        if (!activeContent || isAnimating) return
+        isAnimating = true
+
+        const tl = gsap.timeline({
+          defaults: { duration: 0.4, ease: 'power2.out' },
+          onComplete: () => {
+            activeContent.classList.remove('active')
+            activeVisual?.classList.remove('active')
+            activeContent = null
+            activeVisual = null
+            isAnimating = false
+            gsap.delayedCall(0, recomputeHeight)
+          },
+        })
+
+        closeDetails(activeContent, tl)
+        if (activeVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
+
+        // Height to the collapsed inner state (headers only).
+        tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.4, ease: 'power2.out' }), 0)
+      }
+
+      function onClick(ev) {
         const item = ev.target && /** @type {HTMLElement} */ (ev.target).closest?.('[data-tabs="content-item"]')
         if (!item || !wrapper.contains(item)) return
         const i = Number(item.dataset.tabIndex)
-        if (!Number.isNaN(i) && item !== activeContent) switchTab(i)
-      }
+        if (Number.isNaN(i)) return
 
-      const hoverIn = () => progressBarTween?.pause()
-      const hoverOut = () => progressBarTween?.resume()
-
-      const onAutoplayChange = () => {
-        if (canAutoplay()) {
-          if (!hoverBound) {
-            wrapper.addEventListener('mouseenter', hoverIn)
-            wrapper.addEventListener('mouseleave', hoverOut)
-            hoverBound = true
-          }
-          if (activeContent) startProgressBar(Number(activeContent.dataset.tabIndex))
-        } else {
-          if (hoverBound) {
-            wrapper.removeEventListener('mouseenter', hoverIn)
-            wrapper.removeEventListener('mouseleave', hoverOut)
-            hoverBound = false
-          }
-          stopProgressBar()
+        if (item === activeContent) {
+          if (tabsCollapsible) collapseActive()
+          // If not collapsible, ignore because it is already open.
+          return
         }
+        openTab(i)
       }
 
       wrapper.addEventListener('click', onClick)
-      mql?.addEventListener?.('change', onAutoplayChange)
-      onAutoplayChange()
 
-      // First activation and initial wrapper height.
-      switchTab(0)
-      requestAnimationFrame(recomputeActiveHeight)
+      // Initial: open first tab OR start collapsed if data-tabs-collapsible-init="collapsed"
+      const startCollapsed = wrapper.dataset.tabsCollapsibleInit === 'collapsed'
+      if (!startCollapsed) openTab(0)
+      requestAnimationFrame(recomputeHeight)
 
       cleanups.push(() => {
         wrapper.removeEventListener('click', onClick)
-        if (hoverBound) {
-          wrapper.removeEventListener('mouseenter', hoverIn)
-          wrapper.removeEventListener('mouseleave', hoverOut)
-        }
-        mql?.removeEventListener?.('change', onAutoplayChange)
-        progressBarTween?.kill()
         window.removeEventListener('resize', debouncedRecompute)
         imgListeners.forEach(({ img, onload }) => img.removeEventListener('load', onload))
       })
@@ -224,8 +194,9 @@ export default function initTabs(component) {
 
 /** Utils */
 function snapshotInlineStyle(el) {
-  const prev = el.getAttribute('style')
+  const prev = el?.getAttribute?.('style')
   return () => {
+    if (!el) return
     if (prev == null) el.removeAttribute('style')
     else el.setAttribute('style', prev)
   }
@@ -249,7 +220,6 @@ function toElements(input) {
 }
 
 function normalizeWrapperSlots(wrapper) {
-  // Keep DOM in canonical containers so animations/styles remain consistent.
   const firstVisualItem = wrapper.querySelector('[data-tabs="visual-item"]')
   const firstContentItem = wrapper.querySelector('[data-tabs="content-item"]')
   const visualParent = firstVisualItem?.parentElement || null
