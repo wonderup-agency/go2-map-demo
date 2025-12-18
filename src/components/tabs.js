@@ -2,8 +2,9 @@
 import { gsap } from 'gsap'
 
 /**
- * Tabs without autoplay. On desktop height is animated; on mobile height is auto.
- * Accordion: click again collapses (data-tabs-collapsible !== 'false' to enable, default true).
+ * Tabs without autoplay. Desktop animates height; Mobile uses height:auto.
+ * Accordion: clicking the same tab toggles close (default enabled).
+ * Mobile fixes: ensure visuals don't block taps; add pointer/touch handlers.
  */
 export default function initTabs(component) {
   const roots = toElements(component)
@@ -26,31 +27,32 @@ export default function initTabs(component) {
       if (!inner) return
 
       const tabsCollapsible = wrapper.dataset.tabsCollapsible !== 'false' // default: true
-      const heightLockedMql = window.matchMedia?.('(min-width: 768px)') || null
-      const isHeightLocked = () => !!heightLockedMql?.matches
+      const mql = window.matchMedia?.('(min-width: 768px)') || null
+      const isDesktop = () => !!mql?.matches
 
-      contentItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
+      contentItems.forEach((el, i) => {
+        el.dataset.tabIndex = String(i)
+        // Make headers focusable/clickable
+        el.tabIndex = 0
+      })
       visualItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
-
-      // Prevent visuals from intercepting taps/clicks (mobile overlays).
-      visualItems.forEach((v) => (v.style.pointerEvents = 'none'))
 
       let activeContent = null
       let activeVisual = null
       let isAnimating = false
 
       hardReset(wrapper)
-      applyHeightMode() // set initial height/overflow policy
+      applyMode() // set height/overflow + hit-testing per breakpoint
 
       const recomputeHeight = () => {
-        if (!isHeightLocked()) return // mobile: height auto
+        if (!isDesktop()) return // mobile: height auto
         gsap.set(wrapper, { height: inner.offsetHeight })
       }
       const debouncedRecompute = debounce(recomputeHeight, 100)
-
       window.addEventListener('resize', debouncedRecompute)
-      heightLockedMql?.addEventListener?.('change', applyHeightMode)
+      mql?.addEventListener?.('change', applyMode)
 
+      // Recompute when images load (common on CMS)
       const imgs = wrapper.querySelectorAll('img')
       const imgListeners = []
       imgs.forEach((img) => {
@@ -62,16 +64,44 @@ export default function initTabs(component) {
         document.fonts.ready.then(debouncedRecompute).catch(() => {})
       }
 
-      function applyHeightMode() {
-        if (isHeightLocked()) {
+      function applyMode() {
+        if (isDesktop()) {
           wrapper.style.minHeight = ''
           wrapper.style.overflow = 'hidden'
-          // ensure numeric height set
           gsap.set(wrapper, { height: inner.offsetHeight })
+          // Desktop: visuals can keep pointer events
+          setVisualHitTest(true)
         } else {
-          // mobile: let layout flow naturally
+          // Mobile: let layout flow; prevent overlays stealing taps
           wrapper.style.height = 'auto'
           wrapper.style.overflow = 'visible'
+          setVisualHitTest(false)
+          liftContentAboveVisual()
+        }
+      }
+
+      function setVisualHitTest(enabled) {
+        const pe = enabled ? '' : 'none'
+        const z = enabled ? '' : '0'
+        visualItems.forEach((v) => {
+          v.style.pointerEvents = pe
+          v.style.zIndex = z
+        })
+        // Also neutralize the visual column container if present
+        const visualCols = wrapper.querySelectorAll('.is-visual, .tab-visual__wrap, .tab-layout__col.is-visual')
+        visualCols.forEach((c) => {
+          c.style.pointerEvents = pe
+          c.style.zIndex = z
+        })
+      }
+
+      function liftContentAboveVisual() {
+        // Ensure the content column sits above any positioned visuals
+        const contentWrap =
+          wrapper.querySelector('.tab-content__wrap') || inner.closest('.tab-content__wrap') || inner.parentElement
+        if (contentWrap) {
+          contentWrap.style.position = 'relative'
+          contentWrap.style.zIndex = '1'
         }
       }
 
@@ -121,11 +151,9 @@ export default function initTabs(component) {
         incomingContent.classList.add('active')
         incomingVisual.classList.add('active')
 
-        // Measure final height (desktop only)
-        let targetH = 0
-        if (isHeightLocked()) {
+        if (isDesktop()) {
           const restore = openDetailsForMeasure(incomingContent)
-          targetH = inner.offsetHeight
+          const targetH = inner.offsetHeight
           restore()
           getDetailsEls(incomingContent).forEach((el) => gsap.set(el, { height: 0 }))
           if (targetH > 0) gsap.to(wrapper, { height: targetH, duration: 0.45, ease: 'power3.out' })
@@ -137,7 +165,7 @@ export default function initTabs(component) {
             activeContent = incomingContent
             activeVisual = incomingVisual
             isAnimating = false
-            if (isHeightLocked()) gsap.delayedCall(0, recomputeHeight)
+            if (isDesktop()) gsap.delayedCall(0, recomputeHeight)
           },
         })
 
@@ -162,20 +190,19 @@ export default function initTabs(component) {
             activeContent = null
             activeVisual = null
             isAnimating = false
-            if (isHeightLocked()) gsap.delayedCall(0, recomputeHeight)
+            if (isDesktop()) gsap.delayedCall(0, recomputeHeight)
           },
         })
 
         closeDetails(activeContent, tl)
         if (activeVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
 
-        if (isHeightLocked()) {
+        if (isDesktop()) {
           tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.35, ease: 'power2.out' }), 0)
         }
       }
 
       function findItemFromEvent(ev) {
-        // More robust on mobile (shadow DOM/interactive children).
         const path = ev.composedPath ? ev.composedPath() : []
         for (const n of path) {
           if (n && n.nodeType === 1 && n.matches?.('[data-tabs="content-item"]')) return n
@@ -183,7 +210,13 @@ export default function initTabs(component) {
         return ev.target?.closest?.('[data-tabs="content-item"]')
       }
 
-      function onClick(ev) {
+      // Unified activation handler (click/pointerup/touchend), avoids mobile no-click
+      let lastActTs = 0
+      function onActivate(ev) {
+        const now = performance.now()
+        if (now - lastActTs < 150) return // guard duplicate (touchend → click)
+        lastActTs = now
+
         const item = findItemFromEvent(ev)
         if (!item || !wrapper.contains(item)) return
         const i = Number(item.dataset.tabIndex)
@@ -196,24 +229,25 @@ export default function initTabs(component) {
         openTab(i)
       }
 
-      wrapper.addEventListener('click', onClick, { passive: true })
+      wrapper.addEventListener('click', onActivate, { passive: true })
+      wrapper.addEventListener('pointerup', onActivate, { passive: true })
+      wrapper.addEventListener('touchend', onActivate, { passive: true })
 
-      // Init: open first, unless collapsed init requested
+      // Init: open first unless collapsed init requested
       const startCollapsed = wrapper.dataset.tabsCollapsibleInit === 'collapsed'
       if (!startCollapsed) openTab(0)
       requestAnimationFrame(() => {
-        applyHeightMode()
-        if (isHeightLocked()) recomputeHeight()
+        applyMode()
+        if (isDesktop()) recomputeHeight()
       })
 
       cleanups.push(() => {
-        wrapper.removeEventListener('click', onClick)
+        wrapper.removeEventListener('click', onActivate)
+        wrapper.removeEventListener('pointerup', onActivate)
+        wrapper.removeEventListener('touchend', onActivate)
         window.removeEventListener('resize', debouncedRecompute)
-        heightLockedMql?.removeEventListener?.('change', applyHeightMode)
-        imgs.forEach((_, idx) => {
-          const { img, onload } = imgListeners[idx] || {}
-          img?.removeEventListener?.('load', onload)
-        })
+        mql?.removeEventListener?.('change', applyMode)
+        imgListeners.forEach(({ img, onload }) => img.removeEventListener('load', onload))
       })
     })
   })
