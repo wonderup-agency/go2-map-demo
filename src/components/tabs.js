@@ -2,14 +2,12 @@
 import { gsap } from 'gsap'
 
 /**
- * Tabs without autoplay; wrapper height tracks .tab-content__inner.
- * Accordion behavior: clicking the same tab toggles close (enabled by default).
- * Set data-tabs-collapsible="false" to always keep one open.
+ * Tabs without autoplay. On desktop height is animated; on mobile height is auto.
+ * Accordion: click again collapses (data-tabs-collapsible !== 'false' to enable, default true).
  */
 export default function initTabs(component) {
   const roots = toElements(component)
   if (!roots.length) return
-
   const cleanups = []
 
   roots.forEach((root) => {
@@ -28,22 +26,30 @@ export default function initTabs(component) {
       if (!inner) return
 
       const tabsCollapsible = wrapper.dataset.tabsCollapsible !== 'false' // default: true
+      const heightLockedMql = window.matchMedia?.('(min-width: 768px)') || null
+      const isHeightLocked = () => !!heightLockedMql?.matches
 
       contentItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
       visualItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
+
+      // Prevent visuals from intercepting taps/clicks (mobile overlays).
+      visualItems.forEach((v) => (v.style.pointerEvents = 'none'))
 
       let activeContent = null
       let activeVisual = null
       let isAnimating = false
 
       hardReset(wrapper)
+      applyHeightMode() // set initial height/overflow policy
 
-      wrapper.style.minHeight = ''
-      wrapper.style.overflow = 'hidden'
-
-      const recomputeHeight = () => gsap.set(wrapper, { height: inner.offsetHeight })
+      const recomputeHeight = () => {
+        if (!isHeightLocked()) return // mobile: height auto
+        gsap.set(wrapper, { height: inner.offsetHeight })
+      }
       const debouncedRecompute = debounce(recomputeHeight, 100)
+
       window.addEventListener('resize', debouncedRecompute)
+      heightLockedMql?.addEventListener?.('change', applyHeightMode)
 
       const imgs = wrapper.querySelectorAll('img')
       const imgListeners = []
@@ -56,16 +62,27 @@ export default function initTabs(component) {
         document.fonts.ready.then(debouncedRecompute).catch(() => {})
       }
 
+      function applyHeightMode() {
+        if (isHeightLocked()) {
+          wrapper.style.minHeight = ''
+          wrapper.style.overflow = 'hidden'
+          // ensure numeric height set
+          gsap.set(wrapper, { height: inner.offsetHeight })
+        } else {
+          // mobile: let layout flow naturally
+          wrapper.style.height = 'auto'
+          wrapper.style.overflow = 'visible'
+        }
+      }
+
       function getDetailsEls(scope) {
         return Array.from(scope.querySelectorAll('[data-tabs="item-details"]'))
       }
-
-      function closeDetails(scope, tlOrGsap = gsap) {
+      function closeDetails(scope, tlOr = gsap) {
         getDetailsEls(scope).forEach((el) =>
-          tlOrGsap.to ? tlOrGsap.to(el, { height: 0, duration: 0.3 }) : gsap.set(el, { height: 0 })
+          tlOr.to ? tlOr.to(el, { height: 0, duration: 0.3 }) : gsap.set(el, { height: 0 })
         )
       }
-
       function openDetailsForMeasure(scope) {
         const restores = []
         getDetailsEls(scope).forEach((el) => {
@@ -74,7 +91,6 @@ export default function initTabs(component) {
         })
         return () => restores.forEach((r) => r())
       }
-
       function hideAllVisualsExcept(keep) {
         visualItems.forEach((el) => {
           if (el !== keep) {
@@ -83,7 +99,6 @@ export default function initTabs(component) {
           }
         })
       }
-
       function deactivateAllContentsExcept(keep) {
         contentItems.forEach((el) => {
           if (el !== keep) {
@@ -98,7 +113,6 @@ export default function initTabs(component) {
         const incomingVisual = visualItems[index]
         if (!incomingContent || !incomingVisual) return
         if (isAnimating) return
-
         isAnimating = true
 
         hideAllVisualsExcept(incomingVisual)
@@ -107,28 +121,27 @@ export default function initTabs(component) {
         incomingContent.classList.add('active')
         incomingVisual.classList.add('active')
 
-        const restore = openDetailsForMeasure(incomingContent)
-        const targetH = inner.offsetHeight
-        restore()
-        getDetailsEls(incomingContent).forEach((el) => gsap.set(el, { height: 0 }))
-
-        if (targetH > 0) {
-          gsap.to(wrapper, { height: targetH, duration: 0.5, ease: 'power3.out' })
+        // Measure final height (desktop only)
+        let targetH = 0
+        if (isHeightLocked()) {
+          const restore = openDetailsForMeasure(incomingContent)
+          targetH = inner.offsetHeight
+          restore()
+          getDetailsEls(incomingContent).forEach((el) => gsap.set(el, { height: 0 }))
+          if (targetH > 0) gsap.to(wrapper, { height: targetH, duration: 0.45, ease: 'power3.out' })
         }
 
         const tl = gsap.timeline({
-          defaults: { duration: 0.55, ease: 'power3' },
+          defaults: { duration: 0.5, ease: 'power3' },
           onComplete: () => {
             activeContent = incomingContent
             activeVisual = incomingVisual
             isAnimating = false
-            gsap.delayedCall(0, recomputeHeight)
+            if (isHeightLocked()) gsap.delayedCall(0, recomputeHeight)
           },
         })
 
-        if (activeVisual && activeVisual !== incomingVisual) {
-          tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
-        }
+        if (activeVisual && activeVisual !== incomingVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
         tl.fromTo(incomingVisual, { autoAlpha: 0, xPercent: 3 }, { autoAlpha: 1, xPercent: 0 }, 0.1).fromTo(
           getDetailsEls(incomingContent),
           { height: 0 },
@@ -142,49 +155,65 @@ export default function initTabs(component) {
         isAnimating = true
 
         const tl = gsap.timeline({
-          defaults: { duration: 0.4, ease: 'power2.out' },
+          defaults: { duration: 0.35, ease: 'power2.out' },
           onComplete: () => {
             activeContent.classList.remove('active')
             activeVisual?.classList.remove('active')
             activeContent = null
             activeVisual = null
             isAnimating = false
-            gsap.delayedCall(0, recomputeHeight)
+            if (isHeightLocked()) gsap.delayedCall(0, recomputeHeight)
           },
         })
 
         closeDetails(activeContent, tl)
         if (activeVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
 
-        // Height to the collapsed inner state (headers only).
-        tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.4, ease: 'power2.out' }), 0)
+        if (isHeightLocked()) {
+          tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.35, ease: 'power2.out' }), 0)
+        }
+      }
+
+      function findItemFromEvent(ev) {
+        // More robust on mobile (shadow DOM/interactive children).
+        const path = ev.composedPath ? ev.composedPath() : []
+        for (const n of path) {
+          if (n && n.nodeType === 1 && n.matches?.('[data-tabs="content-item"]')) return n
+        }
+        return ev.target?.closest?.('[data-tabs="content-item"]')
       }
 
       function onClick(ev) {
-        const item = ev.target && /** @type {HTMLElement} */ (ev.target).closest?.('[data-tabs="content-item"]')
+        const item = findItemFromEvent(ev)
         if (!item || !wrapper.contains(item)) return
         const i = Number(item.dataset.tabIndex)
         if (Number.isNaN(i)) return
 
         if (item === activeContent) {
           if (tabsCollapsible) collapseActive()
-          // If not collapsible, ignore because it is already open.
           return
         }
         openTab(i)
       }
 
-      wrapper.addEventListener('click', onClick)
+      wrapper.addEventListener('click', onClick, { passive: true })
 
-      // Initial: open first tab OR start collapsed if data-tabs-collapsible-init="collapsed"
+      // Init: open first, unless collapsed init requested
       const startCollapsed = wrapper.dataset.tabsCollapsibleInit === 'collapsed'
       if (!startCollapsed) openTab(0)
-      requestAnimationFrame(recomputeHeight)
+      requestAnimationFrame(() => {
+        applyHeightMode()
+        if (isHeightLocked()) recomputeHeight()
+      })
 
       cleanups.push(() => {
         wrapper.removeEventListener('click', onClick)
         window.removeEventListener('resize', debouncedRecompute)
-        imgListeners.forEach(({ img, onload }) => img.removeEventListener('load', onload))
+        heightLockedMql?.removeEventListener?.('change', applyHeightMode)
+        imgs.forEach((_, idx) => {
+          const { img, onload } = imgListeners[idx] || {}
+          img?.removeEventListener?.('load', onload)
+        })
       })
     })
   })
@@ -201,7 +230,6 @@ function snapshotInlineStyle(el) {
     else el.setAttribute('style', prev)
   }
 }
-
 function debounce(fn, wait) {
   let t = null
   return (...args) => {
@@ -209,7 +237,6 @@ function debounce(fn, wait) {
     t = setTimeout(() => fn(...args), wait)
   }
 }
-
 function toElements(input) {
   if (!input) return []
   if (typeof input === 'string') return Array.from(document.querySelectorAll(input))
@@ -218,13 +245,11 @@ function toElements(input) {
   if (Array.isArray(input)) return /** @type {HTMLElement[]} */ (input)
   return []
 }
-
 function normalizeWrapperSlots(wrapper) {
   const firstVisualItem = wrapper.querySelector('[data-tabs="visual-item"]')
   const firstContentItem = wrapper.querySelector('[data-tabs="content-item"]')
   const visualParent = firstVisualItem?.parentElement || null
   const contentParent = firstContentItem?.parentElement || null
-
   const moveChildren = (slotEl, selector, targetParent) => {
     if (!slotEl) return
     const dest = targetParent || slotEl.parentElement
@@ -234,15 +259,13 @@ function normalizeWrapperSlots(wrapper) {
     })
     if (!slotEl.querySelector('[data-tabs="visual-item"], [data-tabs="content-item"]')) slotEl.remove()
   }
-
-  wrapper.querySelectorAll('[data-tabs="visual-slot"]').forEach((slot) => {
-    moveChildren(slot, '[data-tabs="visual-item"]', visualParent)
-  })
-  wrapper.querySelectorAll('[data-tabs="links-slot"]').forEach((slot) => {
-    moveChildren(slot, '[data-tabs="content-item"]', contentParent)
-  })
+  wrapper
+    .querySelectorAll('[data-tabs="visual-slot"]')
+    .forEach((s) => moveChildren(s, '[data-tabs="visual-item"]', visualParent))
+  wrapper
+    .querySelectorAll('[data-tabs="links-slot"]')
+    .forEach((s) => moveChildren(s, '[data-tabs="content-item"]', contentParent))
 }
-
 function hardReset(wrapper) {
   const visuals = wrapper.querySelectorAll('[data-tabs="visual-item"]')
   const contents = wrapper.querySelectorAll('[data-tabs="content-item"]')
