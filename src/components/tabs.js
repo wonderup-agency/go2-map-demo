@@ -3,7 +3,7 @@ import { gsap } from 'gsap'
 
 /**
  * Tabs: desktop animates height; mobile uses height:auto.
- * Mobile: disable hit-test on visual column. 
+ * Mobile: disable hit-test on visual column.
  * Inline debug overlay: enable with ?tabsdebug=1|true|yes (desktop & mobile).
  */
 export default function initTabs(component) {
@@ -21,7 +21,7 @@ export default function initTabs(component) {
 
     wrappers.forEach((wrapper, wIdx) => {
       const contentItems = wrapper.querySelectorAll('[data-tabs="content-item"]')
-      const visualItems  = wrapper.querySelectorAll('[data-tabs="visual-item"]')
+      const visualItems = wrapper.querySelectorAll('[data-tabs="visual-item"]')
       if (!contentItems.length || contentItems.length !== visualItems.length) {
         debug.log(`[tabs] skip wrapper[${wIdx}] invalid structure`)
         return
@@ -37,21 +37,25 @@ export default function initTabs(component) {
       const tabsCollapsible = wrapper.dataset.tabsCollapsible !== 'false'
       const mql = window.matchMedia?.('(min-width: 768px)') || null
       const isDesktop = () => !!mql?.matches
-      const isMobile  = () =>
-        (navigator.maxTouchPoints > 0 || 'ontouchstart' in window || window.matchMedia?.('(pointer:coarse)').matches)
-        && !isDesktop()
+      const isMobile = () =>
+        (navigator.maxTouchPoints > 0 || 'ontouchstart' in window || window.matchMedia?.('(pointer:coarse)').matches) &&
+        !isDesktop()
 
-      contentItems.forEach((el, i) => { el.dataset.tabIndex = String(i) })
+      contentItems.forEach((el, i) => {
+        el.dataset.tabIndex = String(i)
+      })
       visualItems.forEach((el, i) => (el.dataset.tabIndex = String(i)))
 
       let activeContent = null
-      let activeVisual  = null
-      let isAnimating   = false
+      let activeVisual = null
+      let isAnimating = false
 
       hardReset(wrapper)
       applyMode()
 
-      const recomputeHeight = () => { if (isDesktop()) gsap.set(wrapper, { height: inner.offsetHeight }) }
+      const recomputeHeight = () => {
+        if (isDesktop()) gsap.set(wrapper, { height: inner.offsetHeight })
+      }
       const debouncedRecompute = debounce(recomputeHeight, 100)
       window.addEventListener('resize', debouncedRecompute)
       mql?.addEventListener?.('change', applyMode)
@@ -92,19 +96,32 @@ export default function initTabs(component) {
       }
       function openDetailsForMeasure(scope) {
         const restores = []
-        getDetailsEls(scope).forEach((el) => { restores.push(snapshotInlineStyle(el)); gsap.set(el, { height: 'auto' }) })
+        getDetailsEls(scope).forEach((el) => {
+          restores.push(snapshotInlineStyle(el))
+          gsap.set(el, { height: 'auto' })
+        })
         return () => restores.forEach((r) => r())
       }
       function hideAllVisualsExcept(keep) {
-        visualItems.forEach((el) => { if (el !== keep) { el.classList.remove('active'); gsap.set(el, { autoAlpha: 0, xPercent: 3 }) } })
+        visualItems.forEach((el) => {
+          if (el !== keep) {
+            el.classList.remove('active')
+            gsap.set(el, { autoAlpha: 0, xPercent: 3 })
+          }
+        })
       }
       function deactivateAllContentsExcept(keep) {
-        contentItems.forEach((el) => { if (el !== keep) { el.classList.remove('active'); closeDetails(el) } })
+        contentItems.forEach((el) => {
+          if (el !== keep) {
+            el.classList.remove('active')
+            closeDetails(el)
+          }
+        })
       }
 
       function openTab(index) {
         const incomingContent = contentItems[index]
-        const incomingVisual  = visualItems[index]
+        const incomingVisual = visualItems[index]
         if (!incomingContent || !incomingVisual || isAnimating) return
         isAnimating = true
 
@@ -126,15 +143,19 @@ export default function initTabs(component) {
           defaults: { duration: 0.45, ease: 'power3' },
           onComplete: () => {
             activeContent = incomingContent
-            activeVisual  = incomingVisual
-            isAnimating   = false
+            activeVisual = incomingVisual
+            isAnimating = false
             if (isDesktop()) gsap.delayedCall(0, recomputeHeight)
             debug.log(`open tab ${index}`)
           },
         })
         if (activeVisual && activeVisual !== incomingVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
-        tl.fromTo(incomingVisual, { autoAlpha: 0, xPercent: 3 }, { autoAlpha: 1, xPercent: 0 }, 0.05)
-          .fromTo(getDetailsEls(incomingContent), { height: 0 }, { height: 'auto' }, 0)
+        tl.fromTo(incomingVisual, { autoAlpha: 0, xPercent: 3 }, { autoAlpha: 1, xPercent: 0 }, 0.05).fromTo(
+          getDetailsEls(incomingContent),
+          { height: 0 },
+          { height: 'auto' },
+          0
+        )
       }
 
       function collapseActive() {
@@ -146,15 +167,16 @@ export default function initTabs(component) {
             activeContent.classList.remove('active')
             activeVisual?.classList.remove('active')
             activeContent = null
-            activeVisual  = null
-            isAnimating   = false
+            activeVisual = null
+            isAnimating = false
             if (isDesktop()) gsap.delayedCall(0, recomputeHeight)
             debug.log('collapse')
           },
         })
         closeDetails(activeContent, tl)
         if (activeVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
-        if (isDesktop()) tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.3, ease: 'power2.out' }), 0)
+        if (isDesktop())
+          tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.3, ease: 'power2.out' }), 0)
       }
 
       // Click only on headers (fallback to whole item)
@@ -180,23 +202,35 @@ export default function initTabs(component) {
         h.setAttribute('tabindex', '0')
         h.addEventListener('click', onHeaderClick)
         h.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onHeaderClick(e) }
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onHeaderClick(e)
+          }
         })
       })
 
       // Debug: see taps without DevTools
       if (DEBUG) {
-        wrapper.addEventListener('click', (e) => { debug.tap(e.target) }, { capture: true })
+        wrapper.addEventListener(
+          'click',
+          (e) => {
+            debug.tap(e.target)
+          },
+          { capture: true }
+        )
         debug.attach(wrapper, {
           openFirst: () => openTab(0),
-          collapse:  () => collapseActive(),
-          togglePE:  () => toggleVisualPE(wrapper),
+          collapse: () => collapseActive(),
+          togglePE: () => toggleVisualPE(wrapper),
         })
       }
 
       const startCollapsed = wrapper.dataset.tabsCollapsibleInit === 'collapsed'
       if (!startCollapsed) openTab(0)
-      requestAnimationFrame(() => { applyMode(); if (isDesktop()) recomputeHeight() })
+      requestAnimationFrame(() => {
+        applyMode()
+        if (isDesktop()) recomputeHeight()
+      })
 
       cleanups.push(() => {
         headers.forEach((h) => {
@@ -213,30 +247,41 @@ export default function initTabs(component) {
 }
 
 /** ---------------- Debug overlay ---------------- */
-function getDebugFlag(){
+function getDebugFlag() {
   try {
     const sp = new URLSearchParams(location.search)
     const v = (sp.get('tabsdebug') || '').toLowerCase()
     return v === '1' || v === 'true' || v === 'yes'
-  } catch { return false }
+  } catch {
+    return false
+  }
 }
 
-function createDebugOverlay(enabled){
-  if (!enabled) return { log(){}, note(){}, tap(){}, attach(){} }
+function createDebugOverlay(enabled) {
+  if (!enabled) return { log() {}, note() {}, tap() {}, attach() {} }
 
   // Capture console to UI
   const orig = {
-    log: console.log, warn: console.warn, error: console.error
+    log: console.log,
+    warn: console.warn,
+    error: console.error,
   }
 
   const box = document.createElement('div')
   box.id = 'tabs-debug-overlay'
   box.style.cssText = [
-    'position:fixed','left:8px','right:8px','bottom:8px',
-    'max-height:45vh','overflow:auto',
-    'background:rgba(10,10,10,.9)','color:#fff',
+    'position:fixed',
+    'left:8px',
+    'right:8px',
+    'bottom:8px',
+    'max-height:45vh',
+    'overflow:auto',
+    'background:rgba(10,10,10,.9)',
+    'color:#fff',
     'font:12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-    'padding:8px','border-radius:10px','z-index:999999'
+    'padding:8px',
+    'border-radius:10px',
+    'z-index:999999',
   ].join(';')
 
   const title = document.createElement('div')
@@ -249,19 +294,28 @@ function createDebugOverlay(enabled){
 
   const noteEl = title.querySelector('#tabsdbg-note')
 
-  function line(kind, msg){
+  function line(kind, msg) {
     const d = document.createElement('div')
     d.style.margin = '2px 0'
     d.textContent = `${kind} ${msg}`
     logwrap.appendChild(d)
     logwrap.scrollTop = logwrap.scrollHeight
   }
-  console.log = (...a)=>{ line('•', a.map(safeStr).join(' ')); orig.log.apply(console, a) }
-  console.warn = (...a)=>{ line('⚠︎', a.map(safeStr).join(' ')); orig.warn.apply(console, a) }
-  console.error= (...a)=>{ line('✖', a.map(safeStr).join(' ')); orig.error.apply(console, a) }
-  window.addEventListener('error', (e)=> line('✖', e.message || 'Error'))
+  console.log = (...a) => {
+    line('•', a.map(safeStr).join(' '))
+    orig.log.apply(console, a)
+  }
+  console.warn = (...a) => {
+    line('⚠︎', a.map(safeStr).join(' '))
+    orig.warn.apply(console, a)
+  }
+  console.error = (...a) => {
+    line('✖', a.map(safeStr).join(' '))
+    orig.error.apply(console, a)
+  }
+  window.addEventListener('error', (e) => line('✖', e.message || 'Error'))
 
-  function addBtn(label, cb){
+  function addBtn(label, cb) {
     const b = document.createElement('button')
     b.textContent = label
     b.style.cssText = 'padding:4px 8px;border:0;border-radius:8px;background:#2b7cff;color:#fff'
@@ -269,30 +323,44 @@ function createDebugOverlay(enabled){
     controls.appendChild(b)
   }
 
-  function selFor(el){
+  function selFor(el) {
     if (!el) return '(null)'
     if (el.id) return `#${el.id}`
     const dt = el.getAttribute?.('data-tabs')
     if (dt) return `[data-tabs="${dt}"]`
-    const cls = (el.className || '').toString().trim().split(/\s+/).slice(0,2).join('.')
-    return cls ? '.'+cls : el.tagName?.toLowerCase()
+    const cls = (el.className || '').toString().trim().split(/\s+/).slice(0, 2).join('.')
+    return cls ? '.' + cls : el.tagName?.toLowerCase()
   }
 
   return {
-    log(msg){ console.log(String(msg)) },
-    note(msg){ noteEl.textContent = '— ' + msg },
-    tap(target){ console.log('tap →', selFor(target)) },
-    attach(wrapper, actions){
+    log(msg) {
+      console.log(String(msg))
+    },
+    note(msg) {
+      noteEl.textContent = '— ' + msg
+    },
+    tap(target) {
+      console.log('tap →', selFor(target))
+    },
+    attach(wrapper, actions) {
       controls.innerHTML = ''
       addBtn('Open first', actions.openFirst)
       addBtn('Collapse', actions.collapse)
       addBtn('Toggle Visual PE', actions.togglePE)
-      addBtn('Clear', ()=>{ logwrap.innerHTML='' })
+      addBtn('Clear', () => {
+        logwrap.innerHTML = ''
+      })
       console.log('[tabs] debug overlay attached')
-    }
+    },
   }
 }
-function safeStr(v){ try { return typeof v==='string'?v:JSON.stringify(v) } catch { return String(v) } }
+function safeStr(v) {
+  try {
+    return typeof v === 'string' ? v : JSON.stringify(v)
+  } catch {
+    return String(v)
+  }
+}
 
 /** ---------------- Style helpers ---------------- */
 function ensureMobileStyleInjected() {
@@ -315,56 +383,84 @@ function ensureMobileStyleInjected() {
 /** ---------------- Hit-test helpers ---------------- */
 function setVisualHitTestInline(wrapper, enabled) {
   const pe = enabled ? '' : 'none'
-  const z  = enabled ? '' : '0'
-  wrapper.querySelectorAll('[data-tabs="visual-item"], .tab-visual__wrap, .is-visual')
-    .forEach((el) => { el.style.pointerEvents = pe; el.style.zIndex = z })
+  const z = enabled ? '' : '0'
+  wrapper.querySelectorAll('[data-tabs="visual-item"], .tab-visual__wrap, .is-visual').forEach((el) => {
+    el.style.pointerEvents = pe
+    el.style.zIndex = z
+  })
 }
 function resetVisualHitTestInline(wrapper) {
-  wrapper.querySelectorAll('[data-tabs="visual-item"], .tab-visual__wrap, .is-visual')
-    .forEach((el) => { el.style.pointerEvents = ''; el.style.zIndex = '' })
+  wrapper.querySelectorAll('[data-tabs="visual-item"], .tab-visual__wrap, .is-visual').forEach((el) => {
+    el.style.pointerEvents = ''
+    el.style.zIndex = ''
+  })
 }
 function liftContentAboveVisual(wrapper, inner) {
   const contentWrap =
-    wrapper.querySelector('.tab-content__wrap') ||
-    inner.closest?.('.tab-content__wrap') ||
-    inner.parentElement
+    wrapper.querySelector('.tab-content__wrap') || inner.closest?.('.tab-content__wrap') || inner.parentElement
   if (contentWrap) {
     contentWrap.style.position = 'relative'
     contentWrap.style.zIndex = '2'
   }
 }
-function toggleVisualPE(wrapper){
+function toggleVisualPE(wrapper) {
   const probe = wrapper.querySelector('[data-tabs="visual-item"], .tab-visual__wrap, .is-visual')
   const on = probe ? getComputedStyle(probe).pointerEvents !== 'none' : true
-  if (on) setVisualHitTestInline(wrapper, false); else resetVisualHitTestInline(wrapper)
+  if (on) setVisualHitTestInline(wrapper, false)
+  else resetVisualHitTestInline(wrapper)
   console.log(`visual pointer-events → ${on ? 'none' : 'auto'}`)
 }
 
 /** ---------------- Utils ---------------- */
-function snapshotInlineStyle(el){ const prev = el?.getAttribute?.('style'); return () => { if (!el) return; if (prev==null) el.removeAttribute('style'); else el.setAttribute('style', prev) } }
-function debounce(fn, wait){ let t=null; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait) } }
-function toElements(input){
+function snapshotInlineStyle(el) {
+  const prev = el?.getAttribute?.('style')
+  return () => {
+    if (!el) return
+    if (prev == null) el.removeAttribute('style')
+    else el.setAttribute('style', prev)
+  }
+}
+function debounce(fn, wait) {
+  let t = null
+  return (...a) => {
+    clearTimeout(t)
+    t = setTimeout(() => fn(...a), wait)
+  }
+}
+function toElements(input) {
   if (!input) return []
-  if (typeof input==='string') return Array.from(document.querySelectorAll(input))
+  if (typeof input === 'string') return Array.from(document.querySelectorAll(input))
   if (input instanceof HTMLElement) return [input]
   if (window.NodeList && input instanceof NodeList) return Array.from(input)
   if (Array.isArray(input)) return /** @type {HTMLElement[]} */ (input)
   return []
 }
-function normalizeWrapperSlots(wrapper){
-  const firstVisualItem=wrapper.querySelector('[data-tabs="visual-item"]')
-  const firstContentItem=wrapper.querySelector('[data-tabs="content-item"]')
-  const visualParent=firstVisualItem?.parentElement||null
-  const contentParent=firstContentItem?.parentElement||null
-  const move=(slot, sel, parent)=>{ if (!slot) return; const dest=parent||slot.parentElement; if (!dest) return; Array.from(slot.querySelectorAll(sel)).forEach((n)=>{ if (n.parentElement!==dest) dest.appendChild(n) }); if (!slot.querySelector('[data-tabs="visual-item"], [data-tabs="content-item"]')) slot.remove() }
-  wrapper.querySelectorAll('[data-tabs="visual-slot"]').forEach((s)=>move(s,'[data-tabs="visual-item"]',visualParent))
-  wrapper.querySelectorAll('[data-tabs="links-slot"]').forEach((s)=>move(s,'[data-tabs="content-item"]',contentParent))
+function normalizeWrapperSlots(wrapper) {
+  const firstVisualItem = wrapper.querySelector('[data-tabs="visual-item"]')
+  const firstContentItem = wrapper.querySelector('[data-tabs="content-item"]')
+  const visualParent = firstVisualItem?.parentElement || null
+  const contentParent = firstContentItem?.parentElement || null
+  const move = (slot, sel, parent) => {
+    if (!slot) return
+    const dest = parent || slot.parentElement
+    if (!dest) return
+    Array.from(slot.querySelectorAll(sel)).forEach((n) => {
+      if (n.parentElement !== dest) dest.appendChild(n)
+    })
+    if (!slot.querySelector('[data-tabs="visual-item"], [data-tabs="content-item"]')) slot.remove()
+  }
+  wrapper
+    .querySelectorAll('[data-tabs="visual-slot"]')
+    .forEach((s) => move(s, '[data-tabs="visual-item"]', visualParent))
+  wrapper
+    .querySelectorAll('[data-tabs="links-slot"]')
+    .forEach((s) => move(s, '[data-tabs="content-item"]', contentParent))
 }
-function hardReset(wrapper){
-  const visuals=wrapper.querySelectorAll('[data-tabs="visual-item"]')
-  const contents=wrapper.querySelectorAll('[data-tabs="content-item"]')
-  visuals.forEach((el)=>el.classList.remove('active'))
-  contents.forEach((el)=>el.classList.remove('active'))
-  gsap.set(visuals,{autoAlpha:0,xPercent:3})
-  gsap.set(wrapper.querySelectorAll('[data-tabs="item-details"]'),{height:0})
+function hardReset(wrapper) {
+  const visuals = wrapper.querySelectorAll('[data-tabs="visual-item"]')
+  const contents = wrapper.querySelectorAll('[data-tabs="content-item"]')
+  visuals.forEach((el) => el.classList.remove('active'))
+  contents.forEach((el) => el.classList.remove('active'))
+  gsap.set(visuals, { autoAlpha: 0, xPercent: 3 })
+  gsap.set(wrapper.querySelectorAll('[data-tabs="item-details"]'), { height: 0 })
 }
