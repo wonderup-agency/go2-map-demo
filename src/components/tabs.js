@@ -2,16 +2,14 @@
 import { gsap } from 'gsap'
 
 /**
- * Tabs: desktop animates height; mobile uses height:auto.
- * Mobile: disable hit-test on visual column.
- * Inline debug overlay: enable with ?tabsdebug=1|true|yes (desktop & mobile).
+ * Tabs: desktop animates wrapper height; mobile uses height:auto.
+ * Mobile fix: disable hit-test on visual column to avoid blocking taps.
+ * Header-only activation for better UX and to prevent accidental toggles.
  */
 export default function initTabs(component) {
   const roots = toElements(component)
   if (!roots.length) return
 
-  const DEBUG = getDebugFlag()
-  const debug = createDebugOverlay(DEBUG)
   ensureMobileStyleInjected()
 
   const cleanups = []
@@ -19,27 +17,18 @@ export default function initTabs(component) {
     const wrappers = root.querySelectorAll('[data-tabs="wrapper"]')
     if (!wrappers.length) continue
 
-    wrappers.forEach((wrapper, wIdx) => {
+    wrappers.forEach((wrapper) => {
       const contentItems = wrapper.querySelectorAll('[data-tabs="content-item"]')
       const visualItems = wrapper.querySelectorAll('[data-tabs="visual-item"]')
-      if (!contentItems.length || contentItems.length !== visualItems.length) {
-        debug.log(`[tabs] skip wrapper[${wIdx}] invalid structure`)
-        return
-      }
+      if (!contentItems.length || contentItems.length !== visualItems.length) return
 
       const innerSel = wrapper.dataset.tabsHeightTarget || '.tab-content__inner'
       const inner = wrapper.querySelector(innerSel)
-      if (!inner) {
-        debug.log(`[tabs] skip wrapper[${wIdx}] inner not found: ${innerSel}`)
-        return
-      }
+      if (!inner) return
 
       const tabsCollapsible = wrapper.dataset.tabsCollapsible !== 'false'
       const mql = window.matchMedia?.('(min-width: 768px)') || null
       const isDesktop = () => !!mql?.matches
-      const isMobile = () =>
-        (navigator.maxTouchPoints > 0 || 'ontouchstart' in window || window.matchMedia?.('(pointer:coarse)').matches) &&
-        !isDesktop()
 
       contentItems.forEach((el, i) => {
         el.dataset.tabIndex = String(i)
@@ -75,14 +64,12 @@ export default function initTabs(component) {
           resetVisualHitTestInline(wrapper)
           wrapper.style.overflow = 'hidden'
           gsap.set(wrapper, { height: inner.offsetHeight })
-          debug.note('mode: desktop')
         } else {
           wrapper.classList.add('tabs--mobile-pe-none')
-          setVisualHitTestInline(wrapper, false) // keep taps on content only
+          setVisualHitTestInline(wrapper, false) // Why: prevent visuals from stealing taps
           liftContentAboveVisual(wrapper, inner)
           wrapper.style.height = 'auto'
           wrapper.style.overflow = 'visible'
-          debug.note('mode: mobile')
         }
       }
 
@@ -146,7 +133,6 @@ export default function initTabs(component) {
             activeVisual = incomingVisual
             isAnimating = false
             if (isDesktop()) gsap.delayedCall(0, recomputeHeight)
-            debug.log(`open tab ${index}`)
           },
         })
         if (activeVisual && activeVisual !== incomingVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
@@ -170,7 +156,6 @@ export default function initTabs(component) {
             activeVisual = null
             isAnimating = false
             if (isDesktop()) gsap.delayedCall(0, recomputeHeight)
-            debug.log('collapse')
           },
         })
         closeDetails(activeContent, tl)
@@ -179,7 +164,7 @@ export default function initTabs(component) {
           tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.3, ease: 'power2.out' }), 0)
       }
 
-      // Click only on headers (fallback to whole item)
+      // Header-only activation (fallback to whole item)
       function onHeaderClick(ev) {
         const header = ev.currentTarget
         const item = header.closest?.('[data-tabs="content-item"]')
@@ -209,22 +194,7 @@ export default function initTabs(component) {
         })
       })
 
-      // Debug: see taps without DevTools
-      if (DEBUG) {
-        wrapper.addEventListener(
-          'click',
-          (e) => {
-            debug.tap(e.target)
-          },
-          { capture: true }
-        )
-        debug.attach(wrapper, {
-          openFirst: () => openTab(0),
-          collapse: () => collapseActive(),
-          togglePE: () => toggleVisualPE(wrapper),
-        })
-      }
-
+      // Init
       const startCollapsed = wrapper.dataset.tabsCollapsibleInit === 'collapsed'
       if (!startCollapsed) openTab(0)
       requestAnimationFrame(() => {
@@ -246,123 +216,7 @@ export default function initTabs(component) {
   return () => cleanups.forEach((c) => c())
 }
 
-/** ---------------- Debug overlay ---------------- */
-function getDebugFlag() {
-  try {
-    const sp = new URLSearchParams(location.search)
-    const v = (sp.get('tabsdebug') || '').toLowerCase()
-    return v === '1' || v === 'true' || v === 'yes'
-  } catch {
-    return false
-  }
-}
-
-function createDebugOverlay(enabled) {
-  if (!enabled) return { log() {}, note() {}, tap() {}, attach() {} }
-
-  // Capture console to UI
-  const orig = {
-    log: console.log,
-    warn: console.warn,
-    error: console.error,
-  }
-
-  const box = document.createElement('div')
-  box.id = 'tabs-debug-overlay'
-  box.style.cssText = [
-    'position:fixed',
-    'left:8px',
-    'right:8px',
-    'bottom:8px',
-    'max-height:45vh',
-    'overflow:auto',
-    'background:rgba(10,10,10,.9)',
-    'color:#fff',
-    'font:12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-    'padding:8px',
-    'border-radius:10px',
-    'z-index:999999',
-  ].join(';')
-
-  const title = document.createElement('div')
-  title.innerHTML = `<b>TABS DEBUG</b> <span id="tabsdbg-note" style="opacity:.75"></span>`
-  const controls = document.createElement('div')
-  controls.style.cssText = 'margin:6px 0; display:flex; flex-wrap:wrap; gap:6px'
-  const logwrap = document.createElement('div')
-  box.append(title, controls, logwrap)
-  document.body.appendChild(box)
-
-  const noteEl = title.querySelector('#tabsdbg-note')
-
-  function line(kind, msg) {
-    const d = document.createElement('div')
-    d.style.margin = '2px 0'
-    d.textContent = `${kind} ${msg}`
-    logwrap.appendChild(d)
-    logwrap.scrollTop = logwrap.scrollHeight
-  }
-  console.log = (...a) => {
-    line('•', a.map(safeStr).join(' '))
-    orig.log.apply(console, a)
-  }
-  console.warn = (...a) => {
-    line('⚠︎', a.map(safeStr).join(' '))
-    orig.warn.apply(console, a)
-  }
-  console.error = (...a) => {
-    line('✖', a.map(safeStr).join(' '))
-    orig.error.apply(console, a)
-  }
-  window.addEventListener('error', (e) => line('✖', e.message || 'Error'))
-
-  function addBtn(label, cb) {
-    const b = document.createElement('button')
-    b.textContent = label
-    b.style.cssText = 'padding:4px 8px;border:0;border-radius:8px;background:#2b7cff;color:#fff'
-    b.onclick = cb
-    controls.appendChild(b)
-  }
-
-  function selFor(el) {
-    if (!el) return '(null)'
-    if (el.id) return `#${el.id}`
-    const dt = el.getAttribute?.('data-tabs')
-    if (dt) return `[data-tabs="${dt}"]`
-    const cls = (el.className || '').toString().trim().split(/\s+/).slice(0, 2).join('.')
-    return cls ? '.' + cls : el.tagName?.toLowerCase()
-  }
-
-  return {
-    log(msg) {
-      console.log(String(msg))
-    },
-    note(msg) {
-      noteEl.textContent = '— ' + msg
-    },
-    tap(target) {
-      console.log('tap →', selFor(target))
-    },
-    attach(wrapper, actions) {
-      controls.innerHTML = ''
-      addBtn('Open first', actions.openFirst)
-      addBtn('Collapse', actions.collapse)
-      addBtn('Toggle Visual PE', actions.togglePE)
-      addBtn('Clear', () => {
-        logwrap.innerHTML = ''
-      })
-      console.log('[tabs] debug overlay attached')
-    },
-  }
-}
-function safeStr(v) {
-  try {
-    return typeof v === 'string' ? v : JSON.stringify(v)
-  } catch {
-    return String(v)
-  }
-}
-
-/** ---------------- Style helpers ---------------- */
+/** Minimal CSS for mobile hit-test */
 function ensureMobileStyleInjected() {
   if (document.getElementById('tabs-mobile-style')) return
   const css = `
@@ -380,7 +234,7 @@ function ensureMobileStyleInjected() {
   document.head.appendChild(style)
 }
 
-/** ---------------- Hit-test helpers ---------------- */
+/** Hit-test helpers */
 function setVisualHitTestInline(wrapper, enabled) {
   const pe = enabled ? '' : 'none'
   const z = enabled ? '' : '0'
@@ -403,15 +257,8 @@ function liftContentAboveVisual(wrapper, inner) {
     contentWrap.style.zIndex = '2'
   }
 }
-function toggleVisualPE(wrapper) {
-  const probe = wrapper.querySelector('[data-tabs="visual-item"], .tab-visual__wrap, .is-visual')
-  const on = probe ? getComputedStyle(probe).pointerEvents !== 'none' : true
-  if (on) setVisualHitTestInline(wrapper, false)
-  else resetVisualHitTestInline(wrapper)
-  console.log(`visual pointer-events → ${on ? 'none' : 'auto'}`)
-}
 
-/** ---------------- Utils ---------------- */
+/** Utils */
 function snapshotInlineStyle(el) {
   const prev = el?.getAttribute?.('style')
   return () => {
