@@ -30,7 +30,7 @@ export default defineConfig({
     }),
     json(),
     url({
-      include: ['**/*.png', '**/*.jpg', '**/*.svg'],
+      include: ['**/*.png', '**/*.jpg', '**/*.svg', '**/*.html'],
       limit: 0, // always copy files
     }),
     terser({
@@ -42,6 +42,7 @@ export default defineConfig({
       },
     }),
     replace({
+      preventAssignment: true,
       'process.env.NODE_ENV': JSON.stringify('production'),
     }),
   ],

@@ -80,6 +80,10 @@ const components = [
     selector: "[data-component='testimonial-slider']",
     importFn: () => import('./components/testimonial-slider.js'),
   },
+  {
+    selector: "[data-component='state-map']",
+    importFn: () => import('./components/state-map/state-map.js'),
+  },
   // Add more components here
 ]
 

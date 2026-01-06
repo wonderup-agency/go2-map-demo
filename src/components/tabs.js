@@ -22,8 +22,10 @@ export default function initTabs(component) {
       const visualItems = wrapper.querySelectorAll('[data-tabs="visual-item"]')
       if (!contentItems.length || contentItems.length !== visualItems.length) return
 
-      const innerSel = wrapper.dataset.tabsHeightTarget || '.tab-content__inner'
-      const inner = wrapper.querySelector(innerSel)
+      // Accept either data-attr container or the legacy class.
+      const inner = wrapper.querySelector(
+        wrapper.dataset.tabsHeightTarget || '[data-tabs="content-inner"], .tab-content__inner'
+      )
       if (!inner) return
 
       const tabsCollapsible = wrapper.dataset.tabsCollapsible !== 'false'
@@ -66,7 +68,7 @@ export default function initTabs(component) {
           gsap.set(wrapper, { height: inner.offsetHeight })
         } else {
           wrapper.classList.add('tabs--mobile-pe-none')
-          setVisualHitTestInline(wrapper, false) // Why: prevent visuals from stealing taps
+          setVisualHitTestInline(wrapper, false) // prevent visuals from stealing taps
           liftContentAboveVisual(wrapper, inner)
           wrapper.style.height = 'auto'
           wrapper.style.overflow = 'visible'
