@@ -3,10 +3,12 @@ import { gsap } from 'gsap'
 
 /**
  * Tabs: desktop animates wrapper height; mobile uses height:auto.
+ * Wrapper height always considers the tallest [data-tabs="visual-item"].
  * Mobile fix: disable hit-test on visual column to avoid blocking taps.
  * Header-only activation for better UX and to prevent accidental toggles.
  */
 export default function initTabs(component) {
+  console.log('test')
   const roots = toElements(component)
   if (!roots.length) return
 
@@ -22,7 +24,7 @@ export default function initTabs(component) {
       const visualItems = wrapper.querySelectorAll('[data-tabs="visual-item"]')
       if (!contentItems.length || contentItems.length !== visualItems.length) return
 
-      // Accept either data-attr container or the legacy class.
+      // Accept data-attr container or legacy class.
       const inner = wrapper.querySelector(
         wrapper.dataset.tabsHeightTarget || '[data-tabs="content-inner"], .tab-content__inner'
       )
@@ -40,38 +42,91 @@ export default function initTabs(component) {
       let activeContent = null
       let activeVisual = null
       let isAnimating = false
+      let maxVisualHeight = 0
 
       hardReset(wrapper)
+
+      // --- measuring helpers ---
+      const measureNaturalHeight = (el) => {
+        if (!el) return 0
+        const restore = snapshotInlineStyle(el)
+        el.style.position = 'absolute'
+        el.style.left = '-99999px'
+        el.style.top = '0'
+        el.style.display = 'block'
+        el.style.height = 'auto'
+        el.style.maxHeight = 'none'
+        el.style.opacity = '1'
+        el.style.visibility = 'hidden'
+        el.style.transform = 'none'
+        const h = Math.ceil(Math.max(el.scrollHeight, el.getBoundingClientRect().height))
+        restore()
+        return h
+      }
+
+      const computeMaxVisualHeight = () => {
+        let maxH = 0
+        visualItems.forEach((vi) => {
+          const h = measureNaturalHeight(vi)
+          if (h > maxH) maxH = h
+        })
+        return maxH
+      }
+
+      const applyMinHeight = () => {
+        // Siempre garantizamos como mínimo la altura del visual más alto
+        wrapper.style.minHeight = maxVisualHeight > 0 ? `${maxVisualHeight}px` : ''
+      }
+
+      const recomputeHeightsAll = () => {
+        maxVisualHeight = computeMaxVisualHeight()
+        applyMinHeight()
+        if (isDesktop()) {
+          gsap.set(wrapper, { height: Math.max(inner.offsetHeight, maxVisualHeight) })
+        }
+      }
+      // -------------------------
+
+      // Primer cálculo antes de aplicar modo para que usemos el max visual.
+      recomputeHeightsAll()
       applyMode()
 
       const recomputeHeight = () => {
-        if (isDesktop()) gsap.set(wrapper, { height: inner.offsetHeight })
+        // Recalcula el alto del wrapper (sin volver a medir cada visual siempre)
+        if (isDesktop()) gsap.set(wrapper, { height: Math.max(inner.offsetHeight, maxVisualHeight) })
       }
       const debouncedRecompute = debounce(recomputeHeight, 100)
-      window.addEventListener('resize', debouncedRecompute)
-      mql?.addEventListener?.('change', applyMode)
+      const debouncedRecomputeAll = debounce(recomputeHeightsAll, 120)
 
+      window.addEventListener('resize', debouncedRecomputeAll)
+      mql?.addEventListener?.('change', () => {
+        recomputeHeightsAll()
+        applyMode()
+      })
+
+      // Recalcular en cargas de imágenes (contenido y visuales)
       const imgs = wrapper.querySelectorAll('img')
       const imgListeners = []
       imgs.forEach((img) => {
-        const onload = () => debouncedRecompute()
+        const onload = () => debouncedRecomputeAll()
         img.addEventListener('load', onload)
         imgListeners.push({ img, onload })
       })
-      document.fonts?.ready?.then(debouncedRecompute).catch(() => {})
+      document.fonts?.ready?.then(debouncedRecomputeAll).catch(() => {})
 
       function applyMode() {
         if (isDesktop()) {
           wrapper.classList.remove('tabs--mobile-pe-none')
           resetVisualHitTestInline(wrapper)
           wrapper.style.overflow = 'hidden'
-          gsap.set(wrapper, { height: inner.offsetHeight })
+          gsap.set(wrapper, { height: Math.max(inner.offsetHeight, maxVisualHeight) })
         } else {
           wrapper.classList.add('tabs--mobile-pe-none')
           setVisualHitTestInline(wrapper, false) // prevent visuals from stealing taps
           liftContentAboveVisual(wrapper, inner)
           wrapper.style.height = 'auto'
           wrapper.style.overflow = 'visible'
+          applyMinHeight()
         }
       }
 
@@ -122,7 +177,7 @@ export default function initTabs(component) {
 
         if (isDesktop()) {
           const restore = openDetailsForMeasure(incomingContent)
-          const targetH = inner.offsetHeight
+          const targetH = Math.max(inner.offsetHeight, maxVisualHeight)
           restore()
           getDetailsEls(incomingContent).forEach((el) => gsap.set(el, { height: 0 }))
           if (targetH > 0) gsap.to(wrapper, { height: targetH, duration: 0.4, ease: 'power3.out' })
@@ -163,10 +218,18 @@ export default function initTabs(component) {
         closeDetails(activeContent, tl)
         if (activeVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
         if (isDesktop())
-          tl.add(() => gsap.to(wrapper, { height: inner.offsetHeight, duration: 0.3, ease: 'power2.out' }), 0)
+          tl.add(
+            () =>
+              gsap.to(wrapper, {
+                height: Math.max(inner.offsetHeight, maxVisualHeight),
+                duration: 0.3,
+                ease: 'power2.out',
+              }),
+            0
+          )
       }
 
-      // Header-only activation (fallback to whole item)
+      // Header-only activation (fallback a todo el item si no existe main)
       function onHeaderClick(ev) {
         const header = ev.currentTarget
         const item = header.closest?.('[data-tabs="content-item"]')
@@ -205,11 +268,9 @@ export default function initTabs(component) {
       })
 
       cleanups.push(() => {
-        headers.forEach((h) => {
-          h.removeEventListener('click', onHeaderClick)
-        })
-        window.removeEventListener('resize', debouncedRecompute)
-        mql?.removeEventListener?.('change', applyMode)
+        headers.forEach((h) => h.removeEventListener('click', onHeaderClick))
+        window.removeEventListener('resize', debouncedRecomputeAll)
+        mql?.removeEventListener?.('change', () => {})
         imgListeners.forEach(({ img, onload }) => img.removeEventListener('load', onload))
       })
     })
