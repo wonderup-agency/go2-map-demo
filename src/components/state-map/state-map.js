@@ -8,6 +8,7 @@ import usjspinsconfig from './pin-config.js'
  * @param {HTMLElement} component
  */
 export default async function (component) {
+  console.log('test')
   // Avoid double-init if your component system can re-run
   if (component?.dataset?.stateMapInitialized === 'true') return
   if (component?.dataset) component.dataset.stateMapInitialized = 'true'
@@ -171,15 +172,20 @@ function initStateMap() {
       })
     }
 
-    function setupTextHoverHandlers() {
-      $(document).on('mouseover', `[id^="${vnIdPrefix}"]`, function () {
-        var stateNum = $(this).attr('id').split('_')[1]
-        $('#' + mapIdPrefix + stateNum).css('fill', '#7ad0e4')
+    function setupHoverClassHandlers() {
+      console.log('hover in')
+      // Hover IN
+      $(document).on('mouseenter', `[id^="${mapIdPrefix}"], [id^="${vnIdPrefix}"]`, function () {
+        var pathEl = getPathElFromHoverTarget(this)
+        if (!pathEl) return
+        pathEl.classList.add('usvn-hover')
       })
 
-      $(document).on('mouseout', `[id^="${vnIdPrefix}"]`, function () {
-        var stateNum = $(this).attr('id').split('_')[1]
-        $('#' + mapIdPrefix + stateNum).css('fill', '')
+      // Hover OUT
+      $(document).on('mouseleave', `[id^="${mapIdPrefix}"], [id^="${vnIdPrefix}"]`, function () {
+        var pathEl = getPathElFromHoverTarget(this)
+        if (!pathEl) return
+        pathEl.classList.remove('usvn-hover')
       })
     }
 
@@ -571,7 +577,7 @@ function initStateMap() {
 
     // Run
     applyStateColors()
-    setupTextHoverHandlers()
+    setupHoverClassHandlers()
     setupTooltipEnhancement()
     setupConfettiEffect()
   })
