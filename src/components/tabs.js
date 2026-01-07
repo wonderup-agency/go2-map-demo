@@ -118,14 +118,12 @@ export default function initTabs(component) {
         if (isDesktop()) {
           wrapper.classList.remove('tabs--mobile-pe-none')
           resetVisualHitTestInline(wrapper)
-          wrapper.style.overflow = 'hidden'
           gsap.set(wrapper, { height: Math.max(inner.offsetHeight, maxVisualHeight) })
         } else {
           wrapper.classList.add('tabs--mobile-pe-none')
           setVisualHitTestInline(wrapper, false) // prevent visuals from stealing taps
           liftContentAboveVisual(wrapper, inner)
           wrapper.style.height = 'auto'
-          wrapper.style.overflow = 'visible'
           applyMinHeight()
         }
       }
