@@ -1,3 +1,4 @@
+// path: /components/button-fixed.js
 /**
  * @param {HTMLElement} component
  */
@@ -11,6 +12,19 @@ export default async function (component) {
   const FAST_COLLAPSE = true
   const getDisplay = (el) => el?.dataset?.display || 'flex'
 
+  // Cookie helpers (why: control de visibilidad cross-page)
+  const SUPPORT_COOKIE = 'bf_support_hidden'
+  const setCookie = (name, value, days) => {
+    const d = new Date()
+    d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000)
+    document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`
+  }
+  const getCookie = (name) => {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'))
+    return m ? decodeURIComponent(m[1]) : null
+  }
+  const isSupportSuppressed = () => getCookie(SUPPORT_COOKIE) === '1'
+
   // Refs
   const mainButton = component.querySelector('.button_fixed')
   const items = Array.from(component.querySelectorAll('[data-button-fixed="item"]'))
@@ -20,6 +34,8 @@ export default async function (component) {
   const selCloseMail = '[data-close-mail]'
   const selClosePhone = '[data-close-phone]'
   const selCloseSupport = '[data-close-support-now]'
+
+  const supportItem = items.find((i) => i.hasAttribute('data-button-support')) || null
 
   // Block anchors "#"
   component.querySelectorAll('a[href="#"]').forEach((a) =>
@@ -38,12 +54,16 @@ export default async function (component) {
   switchClosedEl?.classList.add('is-active')
   mainButton?.setAttribute('aria-expanded', 'false')
 
+  // Si cookie ya existe, marca el support para saltarlo (why: no re-aparecer)
+  if (supportItem && isSupportSuppressed()) {
+    supportItem.dataset.skip = 'true'
+  }
+
   let opened = false
   const isVisible = (el) => getComputedStyle(el).display !== 'none'
   const anyVisible = () => items.some(isVisible)
 
   const setSwitchState = (isOpen) => {
-    // Ensures first switch is the "closed" icon, second is the "open" icon.
     if (isOpen) {
       switchClosedEl?.classList.remove('is-active')
       switchOpenEl?.classList.add('is-active')
@@ -60,7 +80,9 @@ export default async function (component) {
     opened = true
     setSwitchState(true)
     const bottomToTop = [...items].reverse()
-    bottomToTop.forEach((el, i) => {
+    // Filtra soporte si cookie está activa o marcado como skip
+    const toShow = bottomToTop.filter((el) => !(el === supportItem && (isSupportSuppressed() || el.dataset.skip === 'true')))
+    toShow.forEach((el, i) => {
       el.style.display = getDisplay(el)
       el.animate([{ opacity: 0 }, { opacity: 1 }], {
         duration: DUR,
@@ -74,7 +96,7 @@ export default async function (component) {
   const collapseItem = (el) => {
     if (!el || !isVisible(el)) return
     if (FAST_COLLAPSE) {
-      // Why: avoids layout thrash; smoother in mobile.
+      // Why: evita reflow costoso
       el.style.willChange = 'transform,opacity'
       const anim = el.animate(
         [
@@ -129,7 +151,7 @@ export default async function (component) {
       return
     }
     opened = false
-    setSwitchState(false) // reflect state immediately
+    setSwitchState(false)
     items.forEach((el) => isVisible(el) && collapseItem(el))
   }
 
@@ -157,7 +179,10 @@ export default async function (component) {
     }
     if (t.closest(selCloseSupport)) {
       e.preventDefault()
-      collapseItem(items.find((i) => i.hasAttribute('data-button-support')))
+      // Marca cookie 7 días y suprime futuras aperturas
+      setCookie(SUPPORT_COOKIE, '1', 7)
+      if (supportItem) supportItem.dataset.skip = 'true'
+      collapseItem(supportItem)
       return
     }
   })
@@ -173,7 +198,7 @@ export default async function (component) {
   }
   document.addEventListener('keydown', onKey)
 
-  // Why: prevent leaks in SPA when node is removed.
+  // Why: prevenir fugas en SPA cuando el nodo se remueve
   component.addEventListener('DOMNodeRemoved', (e) => {
     if (e.target === component) {
       document.removeEventListener('click', onDocClick)
@@ -181,5 +206,10 @@ export default async function (component) {
     }
   })
 
-  component.__buttonFixedDebug = { openAll, closeAll, collapseItem }
+  component.__buttonFixedDebug = {
+    openAll,
+    closeAll,
+    collapseItem,
+    _cookie: { get: getCookie, set: setCookie, key: SUPPORT_COOKIE }
+  }
 }
