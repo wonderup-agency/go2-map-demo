@@ -12,32 +12,70 @@ export default async function (component) {
   const FAST_COLLAPSE = true
   const getDisplay = (el) => el?.dataset?.display || 'flex'
 
-  // Cookie helpers (why: control de visibilidad cross-page)
+  // Cookie helpers
   const SUPPORT_COOKIE = 'bf_support_hidden'
   const setCookie = (name, value, days) => {
     const d = new Date()
     d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000)
+    // SameSite=Lax evita envío en third-party context; ajusta si hace falta
     document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`
   }
+  // Sin RegExp → evita errores de parseo en bundlers
   const getCookie = (name) => {
-    const m = document.cookie.match(
-      new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
-    )
-    return m ? decodeURIComponent(m[1]) : null
+    const raw = document.cookie || ''
+    if (!raw) return null
+    const pairs = raw.split('; ')
+    for (const pair of pairs) {
+      const [k, ...rest] = pair.split('=')
+      if (k === name) return decodeURIComponent(rest.join('='))
+    }
+    return null
   }
   const isSupportSuppressed = () => getCookie(SUPPORT_COOKIE) === '1'
 
   // Refs
   const mainButton = component.querySelector('.button_fixed')
   const items = Array.from(component.querySelectorAll('[data-button-fixed="item"]'))
-  const switches = Array.from(component.querySelectorAll('.button_switch'))
-  const [switchClosedEl, switchOpenEl] = [switches[0], switches[1] || switches[0]] // enforce order
 
   const selCloseMail = '[data-close-mail]'
   const selClosePhone = '[data-close-phone]'
   const selCloseSupport = '[data-close-support-now]'
 
   const supportItem = items.find((i) => i.hasAttribute('data-button-support')) || null
+
+  // Icon refs (data-button-fixed="icon-*")
+  const iconHeadset = component.querySelector('[data-button-fixed="icon-headset"]')
+  const iconEmpathy = component.querySelector('[data-button-fixed="icon-empathy"]')
+  const iconClose = component.querySelector('[data-button-fixed="icon-close"]')
+  const iconList = [iconHeadset, iconEmpathy, iconClose].filter(Boolean)
+
+  // Icon helpers
+  const hideIcon = (el) => {
+    if (!el) return
+    el.classList.remove('is-active')
+    el.style.display = 'none'
+    el.setAttribute('aria-hidden', 'true')
+  }
+  const showIcon = (el) => {
+    if (!el) return
+    el.classList.add('is-active')
+    el.style.display = ''
+    el.setAttribute('aria-hidden', 'false')
+  }
+  const showOnlyIcon = (name) => {
+    iconList.forEach(hideIcon)
+    if (name === 'close') return showIcon(iconClose)
+    if (name === 'empathy') return showIcon(iconEmpathy)
+    return showIcon(iconHeadset)
+  }
+  const setClosedIconByCookie = () => {
+    showOnlyIcon(isSupportSuppressed() ? 'empathy' : 'headset')
+    mainButton?.setAttribute('aria-expanded', 'false')
+  }
+  const setOpenIcon = () => {
+    showOnlyIcon('close')
+    mainButton?.setAttribute('aria-expanded', 'true')
+  }
 
   // Block anchors "#"
   component.querySelectorAll('a[href="#"]').forEach((a) =>
@@ -47,42 +85,28 @@ export default async function (component) {
     })
   )
 
-  // Init
+  // Init items
   items.forEach((el) => {
     el.style.display = 'none'
     el.style.opacity = 0
   })
-  switches.forEach((s) => s.classList.remove('is-active'))
-  switchClosedEl?.classList.add('is-active')
-  mainButton?.setAttribute('aria-expanded', 'false')
 
-  // Si cookie ya existe, marca el support para saltarlo (why: no re-aparecer)
-  if (supportItem && isSupportSuppressed()) {
-    supportItem.dataset.skip = 'true'
-  }
+  // Si cookie activa, no mostrar soporte
+  if (supportItem && isSupportSuppressed()) supportItem.dataset.skip = 'true'
+
+  // Init icon (cerrado)
+  setClosedIconByCookie()
 
   let opened = false
   const isVisible = (el) => getComputedStyle(el).display !== 'none'
   const anyVisible = () => items.some(isVisible)
 
-  const setSwitchState = (isOpen) => {
-    if (isOpen) {
-      switchClosedEl?.classList.remove('is-active')
-      switchOpenEl?.classList.add('is-active')
-      mainButton?.setAttribute('aria-expanded', 'true')
-    } else {
-      switchOpenEl?.classList.remove('is-active')
-      switchClosedEl?.classList.add('is-active')
-      mainButton?.setAttribute('aria-expanded', 'false')
-    }
-  }
-
   const openAll = () => {
     if (opened) return
     opened = true
-    setSwitchState(true)
+    setOpenIcon()
     const bottomToTop = [...items].reverse()
-    // Filtra soporte si cookie está activa o marcado como skip
+    // Filtra soporte si cookie/skip
     const toShow = bottomToTop.filter(
       (el) => !(el === supportItem && (isSupportSuppressed() || el.dataset.skip === 'true'))
     )
@@ -100,7 +124,6 @@ export default async function (component) {
   const collapseItem = (el) => {
     if (!el || !isVisible(el)) return
     if (FAST_COLLAPSE) {
-      // Why: evita reflow costoso
       el.style.willChange = 'transform,opacity'
       const anim = el.animate(
         [
@@ -116,7 +139,7 @@ export default async function (component) {
         el.style.willChange = ''
         if (!anyVisible()) {
           opened = false
-          setSwitchState(false)
+          setClosedIconByCookie()
         }
       }
       return
@@ -142,7 +165,7 @@ export default async function (component) {
         el.style.willChange = ''
         if (!anyVisible()) {
           opened = false
-          setSwitchState(false)
+          setClosedIconByCookie()
         }
       }
     })
@@ -151,11 +174,10 @@ export default async function (component) {
   const closeAll = () => {
     if (!anyVisible()) {
       opened = false
-      setSwitchState(false)
+      setClosedIconByCookie()
       return
     }
     opened = false
-    setSwitchState(false)
     items.forEach((el) => isVisible(el) && collapseItem(el))
   }
 
@@ -183,10 +205,12 @@ export default async function (component) {
     }
     if (t.closest(selCloseSupport)) {
       e.preventDefault()
-      // Marca cookie 7 días y suprime futuras aperturas
+      // Activa cookie 7 días y suprime soporte
       setCookie(SUPPORT_COOKIE, '1', 7)
       if (supportItem) supportItem.dataset.skip = 'true'
       collapseItem(supportItem)
+      // Si ya está cerrado, actualiza icono de cerrado a empathy
+      if (!opened && !anyVisible()) setClosedIconByCookie()
       return
     }
   })
@@ -202,7 +226,7 @@ export default async function (component) {
   }
   document.addEventListener('keydown', onKey)
 
-  // Why: prevenir fugas en SPA cuando el nodo se remueve
+  // Limpieza en SPA
   component.addEventListener('DOMNodeRemoved', (e) => {
     if (e.target === component) {
       document.removeEventListener('click', onDocClick)
@@ -214,6 +238,7 @@ export default async function (component) {
     openAll,
     closeAll,
     collapseItem,
+    _icon: { showOnlyIcon, setClosedIconByCookie, setOpenIcon },
     _cookie: { get: getCookie, set: setCookie, key: SUPPORT_COOKIE },
   }
 }
