@@ -2,8 +2,6 @@
 
 import stateMapHtmlUrl from '../../state-map/state-map-element.html'
 
-import usjspinsconfig from './pin-config.js'
-
 /**
  * @param {HTMLElement} component
  */
