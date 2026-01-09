@@ -20,7 +20,9 @@ export default async function (component) {
     document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`
   }
   const getCookie = (name) => {
-    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'))
+    const m = document.cookie.match(
+      new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+    )
     return m ? decodeURIComponent(m[1]) : null
   }
   const isSupportSuppressed = () => getCookie(SUPPORT_COOKIE) === '1'
@@ -81,7 +83,9 @@ export default async function (component) {
     setSwitchState(true)
     const bottomToTop = [...items].reverse()
     // Filtra soporte si cookie está activa o marcado como skip
-    const toShow = bottomToTop.filter((el) => !(el === supportItem && (isSupportSuppressed() || el.dataset.skip === 'true')))
+    const toShow = bottomToTop.filter(
+      (el) => !(el === supportItem && (isSupportSuppressed() || el.dataset.skip === 'true'))
+    )
     toShow.forEach((el, i) => {
       el.style.display = getDisplay(el)
       el.animate([{ opacity: 0 }, { opacity: 1 }], {
@@ -210,6 +214,6 @@ export default async function (component) {
     openAll,
     closeAll,
     collapseItem,
-    _cookie: { get: getCookie, set: setCookie, key: SUPPORT_COOKIE }
+    _cookie: { get: getCookie, set: setCookie, key: SUPPORT_COOKIE },
   }
 }
