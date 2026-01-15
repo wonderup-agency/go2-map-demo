@@ -1,1 +1,1 @@
-export{m as default}from"./main-CPsq_X1p.js";
+export{m as default}from"./main-k1__Iglo.js";

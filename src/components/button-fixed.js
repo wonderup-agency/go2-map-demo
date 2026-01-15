@@ -17,10 +17,8 @@ export default async function (component) {
   const setCookie = (name, value, days) => {
     const d = new Date()
     d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000)
-    // SameSite=Lax evita envío en third-party context; ajusta si hace falta
     document.cookie = `${name}=${encodeURIComponent(value)};expires=${d.toUTCString()};path=/;SameSite=Lax`
   }
-  // Sin RegExp → evita errores de parseo en bundlers
   const getCookie = (name) => {
     const raw = document.cookie || ''
     if (!raw) return null
@@ -37,11 +35,12 @@ export default async function (component) {
   const mainButton = component.querySelector('.button_fixed')
   const items = Array.from(component.querySelectorAll('[data-button-fixed="item"]'))
 
-  const selCloseMail = '[data-close-mail]'
-  const selClosePhone = '[data-close-phone]'
   const selCloseSupport = '[data-close-support-now]'
 
   const supportItem = items.find((i) => i.hasAttribute('data-button-support')) || null
+  const phoneItem = items.find((i) => i.hasAttribute('data-button-phone')) || null
+  const mailItem = items.find((i) => i.hasAttribute('data-button-mail')) || null
+  const menuItems = [phoneItem, mailItem].filter(Boolean)
 
   // Icon refs (data-button-fixed="icon-*")
   const iconHeadset = component.querySelector('[data-button-fixed="icon-headset"]')
@@ -68,8 +67,8 @@ export default async function (component) {
     if (name === 'empathy') return showIcon(iconEmpathy)
     return showIcon(iconHeadset)
   }
-  const setClosedIconByCookie = () => {
-    showOnlyIcon(isSupportSuppressed() ? 'empathy' : 'headset')
+  const setClosedIcon = () => {
+    showOnlyIcon('empathy')
     mainButton?.setAttribute('aria-expanded', 'false')
   }
   const setOpenIcon = () => {
@@ -85,31 +84,36 @@ export default async function (component) {
     })
   )
 
-  // Init items
-  items.forEach((el) => {
+  // Init: hide menu items (phone, mail)
+  menuItems.forEach((el) => {
     el.style.display = 'none'
     el.style.opacity = 0
   })
 
-  // Si cookie activa, no mostrar soporte
-  if (supportItem && isSupportSuppressed()) supportItem.dataset.skip = 'true'
+  // Init: show support item if not suppressed by cookie
+  if (supportItem) {
+    if (isSupportSuppressed()) {
+      supportItem.style.display = 'none'
+      supportItem.style.opacity = 0
+    } else {
+      supportItem.style.display = getDisplay(supportItem)
+      supportItem.style.opacity = 1
+    }
+  }
 
-  // Init icon (cerrado)
-  setClosedIconByCookie()
+  // Init icon (closed state)
+  setClosedIcon()
 
-  let opened = false
-  const isVisible = (el) => getComputedStyle(el).display !== 'none'
-  const anyVisible = () => items.some(isVisible)
+  let menuOpened = false
+  const isVisible = (el) => el && getComputedStyle(el).display !== 'none'
+  const anyMenuVisible = () => menuItems.some(isVisible)
 
-  const openAll = () => {
-    if (opened) return
-    opened = true
+  // Open menu (phone + mail)
+  const openMenu = () => {
+    if (menuOpened) return
+    menuOpened = true
     setOpenIcon()
-    const bottomToTop = [...items].reverse()
-    // Filtra soporte si cookie/skip
-    const toShow = bottomToTop.filter(
-      (el) => !(el === supportItem && (isSupportSuppressed() || el.dataset.skip === 'true'))
-    )
+    const toShow = [...menuItems].reverse()
     toShow.forEach((el, i) => {
       el.style.display = getDisplay(el)
       el.animate([{ opacity: 0 }, { opacity: 1 }], {
@@ -121,7 +125,8 @@ export default async function (component) {
     })
   }
 
-  const collapseItem = (el) => {
+  // Collapse a single item with animation
+  const collapseItem = (el, onFinish) => {
     if (!el || !isVisible(el)) return
     if (FAST_COLLAPSE) {
       el.style.willChange = 'transform,opacity'
@@ -137,10 +142,7 @@ export default async function (component) {
         el.style.opacity = ''
         el.style.transform = ''
         el.style.willChange = ''
-        if (!anyVisible()) {
-          opened = false
-          setClosedIconByCookie()
-        }
+        onFinish?.()
       }
       return
     }
@@ -163,22 +165,28 @@ export default async function (component) {
         el.style.overflow = ''
         el.style.opacity = ''
         el.style.willChange = ''
-        if (!anyVisible()) {
-          opened = false
-          setClosedIconByCookie()
-        }
+        onFinish?.()
       }
     })
   }
 
-  const closeAll = () => {
-    if (!anyVisible()) {
-      opened = false
-      setClosedIconByCookie()
+  // Close menu (phone + mail)
+  const closeMenu = () => {
+    if (!anyMenuVisible()) {
+      menuOpened = false
+      setClosedIcon()
       return
     }
-    opened = false
-    items.forEach((el) => isVisible(el) && collapseItem(el))
+    menuOpened = false
+    let pending = menuItems.filter(isVisible).length
+    menuItems.forEach((el) => {
+      if (isVisible(el)) {
+        collapseItem(el, () => {
+          pending--
+          if (pending <= 0) setClosedIcon()
+        })
+      }
+    })
   }
 
   // Events
@@ -186,47 +194,34 @@ export default async function (component) {
     'click',
     (ev) => {
       if (ev.target.closest('[data-button-fixed="item"]')) return
-      opened ? closeAll() : openAll()
+      menuOpened ? closeMenu() : openMenu()
     },
     true
   )
 
+  // Close support button (with cookie)
   component.addEventListener('click', (e) => {
     const t = e.target
-    if (t.closest(selCloseMail)) {
-      e.preventDefault()
-      collapseItem(items.find((i) => i.hasAttribute('data-button-mail')))
-      return
-    }
-    if (t.closest(selClosePhone)) {
-      e.preventDefault()
-      collapseItem(items.find((i) => i.hasAttribute('data-button-phone')))
-      return
-    }
     if (t.closest(selCloseSupport)) {
       e.preventDefault()
-      // Activa cookie 7 días y suprime soporte
       setCookie(SUPPORT_COOKIE, '1', 7)
-      if (supportItem) supportItem.dataset.skip = 'true'
       collapseItem(supportItem)
-      // Si ya está cerrado, actualiza icono de cerrado a empathy
-      if (!opened && !anyVisible()) setClosedIconByCookie()
       return
     }
   })
 
   const onDocClick = (e) => {
     if (e.target.closest('[data-component="button-fixed"]')) return
-    closeAll()
+    closeMenu()
   }
   document.addEventListener('click', onDocClick)
 
   const onKey = (e) => {
-    if (e.key === 'Escape') closeAll()
+    if (e.key === 'Escape') closeMenu()
   }
   document.addEventListener('keydown', onKey)
 
-  // Limpieza en SPA
+  // Cleanup for SPA
   component.addEventListener('DOMNodeRemoved', (e) => {
     if (e.target === component) {
       document.removeEventListener('click', onDocClick)
@@ -235,10 +230,10 @@ export default async function (component) {
   })
 
   component.__buttonFixedDebug = {
-    openAll,
-    closeAll,
+    openMenu,
+    closeMenu,
     collapseItem,
-    _icon: { showOnlyIcon, setClosedIconByCookie, setOpenIcon },
+    _icon: { showOnlyIcon, setClosedIcon, setOpenIcon },
     _cookie: { get: getCookie, set: setCookie, key: SUPPORT_COOKIE },
   }
 }
