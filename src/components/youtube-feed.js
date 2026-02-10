@@ -3,10 +3,11 @@ const WORKER_URL = 'https://go2-centers-worker.nahuel-eba.workers.dev/videos'
 // How many videos to show per "page"
 const PAGE_SIZE = 12
 // How many videos we fetch in total per request (initial or by category)
-const MAX_VIDEOS = 30
+const MAX_VIDEOS = 300
 
 export default async function (component) {
   console.log('[YouTube] Component init ✅', component)
+  console.log('test')
 
   const listEl = component.querySelector('[fs-youtubefeed-element="list"]')
   const templateItem = component.querySelector('[fs-youtubefeed-element="item"]')
@@ -77,7 +78,7 @@ export default async function (component) {
       setLoading(true)
 
       const sep = WORKER_URL.includes('?') ? '&' : '?'
-      const url = WORKER_URL + `${sep}maxVideos=${MAX_VIDEOS}`
+      const url = WORKER_URL + `${sep}maxVideos=${MAX_VIDEOS}&maxVideosPerPlaylist=${MAX_VIDEOS}`
 
       const res = await fetch(url)
       if (!res.ok) {
@@ -111,6 +112,7 @@ export default async function (component) {
       }
 
       visibleCount = Math.min(PAGE_SIZE, allVideos.length)
+      console.log('[YouTube] Total videos fetched:', allVideos.length, '| Showing initially:', visibleCount)
 
       console.time('[YouTube] Initial render')
       renderCurrentList(false)
