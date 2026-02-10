@@ -1,1 +1,1 @@
-export{m as default}from"./main-k1__Iglo.js";
+export{m as default}from"./main-Bf9rUy2J.js";
