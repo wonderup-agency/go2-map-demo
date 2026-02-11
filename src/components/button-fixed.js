@@ -3,6 +3,7 @@
  * @param {HTMLElement} component
  */
 export default async function (component) {
+  console.log('button fixed test')
   // Motion config
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const DUR = prefersReduced ? 1 : 800
@@ -40,7 +41,7 @@ export default async function (component) {
   const supportItem = items.find((i) => i.hasAttribute('data-button-support')) || null
   const phoneItem = items.find((i) => i.hasAttribute('data-button-phone')) || null
   const mailItem = items.find((i) => i.hasAttribute('data-button-mail')) || null
-  const menuItems = [phoneItem, mailItem].filter(Boolean)
+  let menuItems = [phoneItem, mailItem].filter(Boolean)
 
   // Icon refs (data-button-fixed="icon-*")
   const iconHeadset = component.querySelector('[data-button-fixed="icon-headset"]')
@@ -105,6 +106,35 @@ export default async function (component) {
   setClosedIcon()
 
   let menuOpened = false
+  let supportTransformed = false
+  const supportLink = supportItem?.querySelector('.item-link')
+
+  const transformToForm = () => {
+    if (!supportItem || supportTransformed) return
+    supportTransformed = true
+    const textEl = supportItem.querySelector('.g-paragraph')
+    if (textEl) textEl.innerHTML = 'HelpLine<br>'
+    const closeBtn = supportItem.querySelector(selCloseSupport)
+    if (closeBtn) closeBtn.style.display = 'none'
+    supportItem.classList.remove('is-last')
+  }
+
+  const revertToSupport = () => {
+    if (!supportItem || !supportTransformed) return
+    supportTransformed = false
+    const textEl = supportItem.querySelector('.g-paragraph')
+    if (textEl) textEl.innerHTML = 'Get support now<br>'
+    const closeBtn = supportItem.querySelector(selCloseSupport)
+    if (closeBtn) closeBtn.style.display = ''
+    supportItem.classList.add('is-last')
+    menuItems = [phoneItem, mailItem].filter(Boolean)
+    if (!isSupportSuppressed()) {
+      supportItem.getAnimations().forEach((a) => a.cancel())
+      supportItem.style.display = getDisplay(supportItem)
+      supportItem.style.opacity = 1
+    }
+  }
+
   const isVisible = (el) => el && getComputedStyle(el).display !== 'none'
   const anyMenuVisible = () => menuItems.some(isVisible)
 
@@ -170,11 +200,12 @@ export default async function (component) {
     })
   }
 
-  // Close menu (phone + mail)
+  // Close menu (phone + mail + form)
   const closeMenu = () => {
     if (!anyMenuVisible()) {
       menuOpened = false
       setClosedIcon()
+      revertToSupport()
       return
     }
     menuOpened = false
@@ -183,7 +214,10 @@ export default async function (component) {
       if (isVisible(el)) {
         collapseItem(el, () => {
           pending--
-          if (pending <= 0) setClosedIcon()
+          if (pending <= 0) {
+            setClosedIcon()
+            revertToSupport()
+          }
         })
       }
     })
@@ -194,7 +228,12 @@ export default async function (component) {
     'click',
     (ev) => {
       if (ev.target.closest('[data-button-fixed="item"]')) return
-      menuOpened ? closeMenu() : openMenu()
+      if (menuOpened) {
+        closeMenu()
+      } else if (!supportItem || !isVisible(supportItem) || isSupportSuppressed()) {
+        // Only open phone + email when support was dismissed (cookie)
+        openMenu()
+      }
     },
     true
   )
@@ -209,6 +248,24 @@ export default async function (component) {
       return
     }
   })
+
+  // "Get support now" click → transform to "Form" + open menu
+  // Capture phase so it fires before Finsweet modal handler
+  if (supportLink) {
+    supportLink.addEventListener(
+      'click',
+      (e) => {
+        if (!supportTransformed) {
+          e.preventDefault()
+          e.stopImmediatePropagation()
+          transformToForm()
+          if (!menuOpened) openMenu()
+          menuItems = [phoneItem, mailItem, supportItem].filter(Boolean)
+        }
+      },
+      true
+    )
+  }
 
   const onDocClick = (e) => {
     if (e.target.closest('[data-component="button-fixed"]')) return
