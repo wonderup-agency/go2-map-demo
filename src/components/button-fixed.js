@@ -108,12 +108,17 @@ export default async function (component) {
   let menuOpened = false
   let supportTransformed = false
   const supportLink = supportItem?.querySelector('.item-link')
+  const supportIconInner = supportItem?.querySelector('.icon_inner')
+  const supportIconOriginal = supportIconInner?.innerHTML || ''
+  const formSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 24 24" fill="none"><path d="M19 22H5C3.34315 22 2 20.6569 2 19V3C2 2.44772 2.44772 2 3 2H17C17.5523 2 18 2.44772 18 3V15H22V19C22 20.6569 20.6569 22 19 22ZM18 17V19C18 19.5523 18.4477 20 19 20C19.5523 20 20 19.5523 20 19V17H18ZM16 20V4H4V19C4 19.5523 4.44772 20 5 20H16ZM6 7H14V9H6V7ZM6 11H14V13H6V11ZM6 15H11V17H6V15Z" fill="currentColor"></path></svg>'
 
   const transformToForm = () => {
     if (!supportItem || supportTransformed) return
     supportTransformed = true
     const textEl = supportItem.querySelector('.g-paragraph')
-    if (textEl) textEl.innerHTML = 'HelpLine<br>'
+    if (textEl) textEl.innerHTML = 'Complete this form<br>'
+    if (supportIconInner) supportIconInner.innerHTML = formSvg
     const closeBtn = supportItem.querySelector(selCloseSupport)
     if (closeBtn) closeBtn.style.display = 'none'
     supportItem.classList.remove('is-last')
@@ -124,6 +129,7 @@ export default async function (component) {
     supportTransformed = false
     const textEl = supportItem.querySelector('.g-paragraph')
     if (textEl) textEl.innerHTML = 'Get support now<br>'
+    if (supportIconInner) supportIconInner.innerHTML = supportIconOriginal
     const closeBtn = supportItem.querySelector(selCloseSupport)
     if (closeBtn) closeBtn.style.display = ''
     supportItem.classList.add('is-last')
@@ -230,8 +236,13 @@ export default async function (component) {
       if (ev.target.closest('[data-button-fixed="item"]')) return
       if (menuOpened) {
         closeMenu()
-      } else if (!supportItem || !isVisible(supportItem) || isSupportSuppressed()) {
-        // Only open phone + email when support was dismissed (cookie)
+      } else {
+        transformToForm()
+        menuItems = [phoneItem, mailItem, supportItem].filter(Boolean)
+        // Prep support for animation if already visible
+        if (supportItem && isVisible(supportItem)) {
+          supportItem.style.opacity = 0
+        }
         openMenu()
       }
     },
