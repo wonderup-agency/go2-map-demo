@@ -7,6 +7,7 @@ import am5themes_Animated from '@amcharts/amcharts5/themes/Animated'
  * @param {HTMLElement} component
  */
 export default async function (component) {
+  am5.addLicense('AM5C-5405-1606-1671-1138')
   am5.ready(function () {
     document.querySelectorAll('[data-graphic-type="bars"]').forEach((el) => {
       // Responsive height: 20rem only on mobile
