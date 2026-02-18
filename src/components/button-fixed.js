@@ -238,7 +238,7 @@ export default async function (component) {
         closeMenu()
       } else {
         transformToForm()
-        menuItems = [phoneItem, mailItem, supportItem].filter(Boolean)
+        menuItems = [mailItem, phoneItem, supportItem].filter(Boolean)
         // Prep support for animation if already visible
         if (supportItem && isVisible(supportItem)) {
           supportItem.style.opacity = 0
@@ -270,8 +270,9 @@ export default async function (component) {
           e.preventDefault()
           e.stopImmediatePropagation()
           transformToForm()
+          menuItems = [mailItem, phoneItem, supportItem].filter(Boolean)
+          if (supportItem) supportItem.style.opacity = 0
           if (!menuOpened) openMenu()
-          menuItems = [phoneItem, mailItem, supportItem].filter(Boolean)
         }
       },
       true
