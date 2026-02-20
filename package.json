@@ -40,6 +40,8 @@
   },
   "dependencies": {
     "@amcharts/amcharts5": "^5.14.3",
+    "@googlemaps/js-api-loader": "^2.0.2",
+    "@googlemaps/markerclusterer": "^2.6.2",
     "gsap": "^3.13.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",

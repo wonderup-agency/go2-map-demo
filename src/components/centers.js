@@ -1,306 +1,380 @@
 // centers.js
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import 'leaflet.markercluster'
-import 'leaflet.markercluster/dist/MarkerCluster.css'
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
+
+// ─── Step 1: Configuration ──────────────────────────────────────────────────
+
+const CONFIG = {
+  API_URL: 'https://hcp.go2.org/wp-json/go2/v1/facilities?year=2025,2026&per_page=500',
+  GOOGLE_MAPS_API_KEY: 'AIzaSyDzjnzJImLe2q2uc8ziZYmQVPrI9TDukww',
+  DEFAULT_CENTER: { lat: 37.5, lng: -95.7 },
+  DEFAULT_ZOOM: 4,
+  CLICK_ZOOM: 14,
+  CLUSTER_RADIUS: 60, // pixels — lower = pins must be closer to cluster, higher = clusters more aggressively
+}
+
+const DESIGNATION_TYPES = {
+  screening: { label: 'Screening Center', color: '#BBCB32' },
+  cancer_care: { label: 'Cancer Care Center', color: '#835A91' },
+  ipn: { label: 'IPN Center', color: '#7AD1E5' },
+  biomarker: { label: 'Biomarker Center', color: '#2c3495' },
+}
+
+// ─── Step 8: SVG marker icon builder ────────────────────────────────────────
+
+function buildPinSvgUrl(color) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">
+    <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 28 16 28s16-16 16-28C32 7.16 24.84 0 16 0z" fill="${color}"/>
+    <circle cx="16" cy="16" r="7" fill="#fff"/>
+  </svg>`
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg)
+}
+
+// ─── Step 9: Custom cluster renderer ────────────────────────────────────────
+
+class CustomClusterRenderer {
+  render({ count, position }) {
+    const digits = String(count).length
+    const size = digits > 2 ? 48 : digits === 2 ? 40 : 36
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="#ffffff" stroke="#2c3495" stroke-width="3"/>
+      <text x="${size / 2}" y="${size / 2}" text-anchor="middle" dominant-baseline="central" fill="#2c3495" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="14">${count}</text>
+    </svg>`
+    const icon = {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(size, size),
+      anchor: new google.maps.Point(size / 2, size / 2),
+    }
+    return new google.maps.Marker({ position, icon, zIndex: 1000 + count })
+  }
+}
+
+// ─── Step 7: Data transformation ────────────────────────────────────────────
+
+function buildPinRecords(facilities) {
+  const pins = []
+
+  for (const f of facilities) {
+    if (!f.designations || !f.designations.length) continue
+
+    // Group designations by resolved lat/lng
+    const locationMap = new Map()
+
+    for (const des of f.designations) {
+      const type = des.type
+      if (!DESIGNATION_TYPES[type]) continue
+
+      const hasOverrideAddress =
+        des.overrides &&
+        des.overrides.address &&
+        des.overrides.address.latitude != null &&
+        des.overrides.address.longitude != null
+
+      let lat, lng, address, phone, website
+
+      if (hasOverrideAddress) {
+        const oa = des.overrides.address
+        lat = parseFloat(oa.latitude)
+        lng = parseFloat(oa.longitude)
+        const parts = [oa.line1, oa.line2, oa.city, oa.state, oa.zip].filter(Boolean)
+        address = parts.join(', ')
+        phone = des.overrides.phone || f.phone
+        website = des.overrides.url || f.website
+      } else {
+        lat = parseFloat(f.latitude)
+        lng = parseFloat(f.longitude)
+        const a = f.address || {}
+        const parts = [a.line1, a.line2, a.city, a.state, a.zip].filter(Boolean)
+        address = parts.join(', ')
+        phone = f.phone
+        website = f.website
+      }
+
+      if (isNaN(lat) || isNaN(lng)) continue
+
+      const key = `${lat},${lng}`
+      if (!locationMap.has(key)) {
+        locationMap.set(key, {
+          lat,
+          lng,
+          address,
+          phone,
+          website,
+          designationTypes: [],
+        })
+      }
+      locationMap.get(key).designationTypes.push(type)
+    }
+
+    for (const [, loc] of locationMap) {
+      const a = f.address || {}
+      pins.push({
+        fid: f.fid,
+        name: f.name,
+        lat: loc.lat,
+        lng: loc.lng,
+        address: loc.address,
+        phone: loc.phone,
+        website: loc.website,
+        imageUrl: f.image_url,
+        designationTypes: loc.designationTypes,
+        primaryType: loc.designationTypes[0],
+        zip: a.zip || '',
+        city: a.city || '',
+        state: a.state || '',
+      })
+    }
+  }
+
+  return pins
+}
+
+// ─── Main export ────────────────────────────────────────────────────────────
 
 /**
- *
  * @param {HTMLElement} component
  */
 export default async function (component) {
-  // --- Exposed cluster config (tweak in console before the module runs) ---
-  // Example: CENTERS_CLUSTER_CONFIG.maxClusterRadius = 120
-  const CENTERS_CLUSTER_CONFIG = {
-    maxClusterRadius: 30, // pixels
-    disableClusteringAtZoom: 16,
-    spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false,
-    animate: true,
-    chunkedLoading: true,
-  }
-
+  // ─── Step 2: DOM references ─────────────────────────────────────────────
   const centersList = component.querySelector("[data-centers='list']")
   const mapEl = component.querySelector("[data-centers='map']")
   const zipField = component.querySelector("[data-custom='centers-zip-field']")
   const categoriesSelect = component.querySelector("[data-centers='categories-select']")
   const itemTemplate = document.querySelector('[data-centers="list-item"]').cloneNode(true)
 
-  // Initialize map
-  const map = L.map(mapEl).setView([37.5, -95.7], 4) // Centered on US
+  // ─── Step 3: Rebuild dropdown options ───────────────────────────────────
+  categoriesSelect.innerHTML = ''
+  const allOption = document.createElement('option')
+  allOption.value = 'all'
+  allOption.textContent = 'All'
+  categoriesSelect.appendChild(allOption)
 
-  // Define custom icons
-  const baseIconUrl = 'https://go2-centers-worker.nahuel-eba.workers.dev/'
-  const iconConfig = {
-    'GO2 designated': L.icon({
-      iconUrl: `${baseIconUrl}pin-go2.png`,
-      shadowUrl: `${baseIconUrl}pin-shadow.png`,
-      iconSize: [62, 62],
-      iconAnchor: [31, 62],
-      shadowSize: [52, 32],
-      shadowAnchor: [26, 8],
-      popupAnchor: [0, -35],
-    }),
-    COC: L.icon({
-      iconUrl: `${baseIconUrl}pin-coc.png`,
-      shadowUrl: `${baseIconUrl}pin-shadow.png`,
-      iconSize: [52, 52],
-      iconAnchor: [26, 52],
-      shadowSize: [52, 32],
-      shadowAnchor: [26, 8],
-      popupAnchor: [0, -35],
-    }),
-    'NCI designated': L.icon({
-      iconUrl: `${baseIconUrl}pin-nci.png`,
-      shadowUrl: `${baseIconUrl}pin-shadow.png`,
-      iconSize: [52, 52],
-      iconAnchor: [26, 52],
-      shadowAnchor: [26, 8],
-      popupAnchor: [0, -35],
-    }),
+  for (const [key, { label }] of Object.entries(DESIGNATION_TYPES)) {
+    const option = document.createElement('option')
+    option.value = key
+    option.textContent = label
+    categoriesSelect.appendChild(option)
   }
 
-  // Inject minimal cluster icon stylesheet (custom appearance per request)
-  ;(function injectClusterStyles() {
-    const css = `
-      .custom-cluster {
-        background: transparent;
-        border-radius: 50vw;
-        display: inline-block;
-        line-height: 1;
-        text-align: center;
-      }
-      .custom-cluster > div {
-        background: #ffffff;
-        border: 3px solid #2c3495;
-        border-radius: 50vw;
-        display: inline-block;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 3rem;
-        height: 3rem;
-      }
-      .custom-cluster span {
-        color: #2c3495;
-        font-weight: 800;
-        font-family: Arial, Helvetica, sans-serif;
-        display: inline-block;
-        font-size: 1rem;
-      }
-    `
-    const s = document.createElement('style')
-    s.setAttribute('data-generated', 'centers-cluster-styles')
-    s.appendChild(document.createTextNode(css))
-    document.head.appendChild(s)
-  })()
+  // ─── Loading state ──────────────────────────────────────────────────────
+  centersList.innerHTML = '<p style="padding:1rem;color:#666;">Loading centers...</p>'
 
-  // Add OpenStreetMap tiles
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map)
-
-  // Fetch health centers data
-  let healthCenters = []
+  // ─── Step 4: Load Google Maps API ───────────────────────────────────────
   try {
-    const response = await fetch('https://go2-centers-worker.nahuel-eba.workers.dev/centers')
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-    healthCenters = Object.values(await response.json())
-  } catch (error) {
-    console.error('Error fetching health centers data:', error)
+    setOptions({ key: CONFIG.GOOGLE_MAPS_API_KEY, v: 'weekly' })
+    await importLibrary('maps')
+  } catch (err) {
+    console.error('Google Maps failed to load:', err)
+    mapEl.innerHTML = '<p style="padding:1rem;color:red;">Failed to load Google Maps. Please try again later.</p>'
     return
   }
 
-  // markers (flat array of L.Marker)
+  // ─── Step 5: Initialize map ─────────────────────────────────────────────
+  const map = new google.maps.Map(mapEl, {
+    center: CONFIG.DEFAULT_CENTER,
+    zoom: CONFIG.DEFAULT_ZOOM,
+  })
+
+  // ─── Build icon map ─────────────────────────────────────────────────────
+  const iconMap = {}
+  for (const [type, { color }] of Object.entries(DESIGNATION_TYPES)) {
+    iconMap[type] = {
+      url: buildPinSvgUrl(color),
+      scaledSize: new google.maps.Size(32, 44),
+      anchor: new google.maps.Point(16, 44),
+    }
+  }
+
+  // ─── Step 10: Shared InfoWindow ─────────────────────────────────────────
+  const infoWindow = new google.maps.InfoWindow()
+
+  // ─── Step 6: Fetch facility data ────────────────────────────────────────
+  let allFacilities = []
+  try {
+    const res = await fetch(CONFIG.API_URL)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    allFacilities = data.facilities || []
+
+    // Defensive pagination
+    if (data.total_pages > 1) {
+      const pagePromises = []
+      for (let p = 2; p <= data.total_pages; p++) {
+        pagePromises.push(
+          fetch(`${CONFIG.API_URL}&page=${p}`)
+            .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+            .then((d) => d.facilities || [])
+        )
+      }
+      const pages = await Promise.all(pagePromises)
+      for (const page of pages) {
+        allFacilities = allFacilities.concat(page)
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching facility data:', err)
+    centersList.innerHTML = '<p style="padding:1rem;color:red;">Failed to load centers. Please try again later.</p>'
+    return
+  }
+
+  // ─── Step 7 (apply): Transform to pin records ──────────────────────────
+  const allPinRecords = buildPinRecords(allFacilities)
+
+  // ─── State ──────────────────────────────────────────────────────────────
   let markers = []
+  let clusterer = null
 
-  // Cluster group reference
-  let clusterGroup = null
-
-  // Helper to create the cluster icon (shows count and uses requested colors)
-  function createClusterIcon(cluster) {
-    const count = cluster.getChildCount()
-    // scale size based on count (simple heuristic)
-    const digits = String(count).length
-    const multiplier = digits > 2 ? 1.4 : digits === 2 ? 1.2 : 1
-    const html = `<div><span>${count}</span></div>`
-    return L.divIcon({
-      html,
-      className: 'custom-cluster',
-      iconSize: L.point(30 * multiplier, 30 * multiplier),
-    })
-  }
-
-  // Build cluster options from exposed config
-  function buildClusterOptions() {
-    const cfg = CENTERS_CLUSTER_CONFIG || {}
-    return {
-      maxClusterRadius: cfg.maxClusterRadius,
-      disableClusteringAtZoom: cfg.disableClusteringAtZoom,
-      spiderfyOnMaxZoom: cfg.spiderfyOnMaxZoom,
-      showCoverageOnHover: cfg.showCoverageOnHover,
-      animate: typeof cfg.animate === 'boolean' ? cfg.animate : true,
-      chunkedLoading: typeof cfg.chunkedLoading === 'boolean' ? cfg.chunkedLoading : true,
-      iconCreateFunction: createClusterIcon,
-      // keep default behavior for cluster click (zoom in / expand)
-      // other options can be added to CENTERS_CLUSTER_CONFIG as needed
-    }
-  }
-
-  function ensureClusterGroup() {
-    // remove old group if exists
-    if (clusterGroup) {
-      clusterGroup.clearLayers()
-      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup)
-      clusterGroup = null
-    }
-    clusterGroup = L.markerClusterGroup(buildClusterOptions())
-    // default cluster click behavior is provided by MarkerCluster plugin (zoom in)
-    // but keep a safety handler to fit bounds if required by map state:
-    clusterGroup.on('clusterclick', function (a) {
-      // allow default behavior (zoom in). If disableClusteringAtZoom would show markers,
-      // plugin handles this. We do not override to "zoom out".
-      // No-op here so default behavior remains.
-    })
-  }
-
-  function clearMarkers() {
-    if (clusterGroup) {
-      clusterGroup.clearLayers()
-      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup)
-    }
-    markers.forEach((m) => {
-      // ensure removed from any map
-      try {
-        map.removeLayer(m)
-      } catch (e) {}
-    })
-    markers = []
-  }
-
-  function renderCenters(filtered) {
-    // Clear list and previous markers/clusters
+  // ─── Step 11: Render function ───────────────────────────────────────────
+  function renderCenters(pinRecords) {
+    // Clear previous
     centersList.innerHTML = ''
-    clearMarkers()
-    ensureClusterGroup()
+    if (clusterer) {
+      clusterer.clearMarkers()
+      clusterer = null
+    }
+    markers.forEach((m) => m.setMap(null))
+    markers = []
 
-    const bounds = []
+    if (pinRecords.length === 0) {
+      centersList.innerHTML = '<p style="padding:1rem;color:#666;">No centers match your search.</p>'
+      return
+    }
 
-    filtered.forEach((center) => {
-      const { id, category, lat, lng, loc_name, loc_main_address, city, zip, loc_image, loc_main_phone, loc_main_url } =
-        center
+    const bounds = new google.maps.LatLngBounds()
 
+    pinRecords.forEach((pin) => {
+      // ── List item ────────────────────────────────────────────────────
       const item = itemTemplate.cloneNode(true)
-      item.dataset.id = id
-      const fields = [
-        { selector: '[data-center="icon"]', value: category, isIcon: true },
-        { selector: '[data-custom="center-name"]', value: loc_name },
-        { selector: '[data-custom="center-city"]', value: city },
-        { selector: '[data-custom="center-zip-code"]', value: zip },
-        {
-          selector: '[data-centers="where"]',
-          value: loc_main_url,
-          isLink: true,
-        },
-        { selector: '[data-custom="center-accreditations"]', value: category },
-      ]
-      fields.forEach(({ selector, value, isIcon, isLink }) => {
-        const el = item.querySelector(selector)
-        if (!value) {
-          el?.parentElement?.remove()
-          return
-        }
-        if (isIcon) {
-          el.alt = value
-          const prefix = 'https://go2-centers-worker.nahuel-eba.workers.dev/'
-          switch (value) {
-            case 'GO2 designated':
-              el.src = `${prefix}pin-go2.png`
-              break
-            case 'NCI designated':
-              el.src = `${prefix}pin-nci.png`
-              break
-            case 'COC':
-              el.src = `${prefix}pin-coc.png`
-              break
+      item.dataset.id = pin.fid
 
-            default:
-              el?.parentElement?.remove()
-              break
-          }
-          return
+      const iconEl = item.querySelector('[data-center="icon"]')
+      if (iconEl) {
+        if (iconMap[pin.primaryType]) {
+          iconEl.src = iconMap[pin.primaryType].url
+          iconEl.alt = DESIGNATION_TYPES[pin.primaryType]?.label || pin.primaryType
+        } else {
+          iconEl.parentElement?.remove()
         }
-        if (isLink) el.href = value
-        el.textContent = value
-      })
+      }
+
+      const nameEl = item.querySelector('[data-custom="center-name"]')
+      if (nameEl) nameEl.textContent = pin.name
+
+      const cityEl = item.querySelector('[data-custom="center-city"]')
+      if (cityEl) cityEl.textContent = pin.city
+
+      const zipEl = item.querySelector('[data-custom="center-zip-code"]')
+      if (zipEl) zipEl.textContent = pin.zip
+
+      const whereEl = item.querySelector('[data-centers="where"]')
+      if (whereEl) {
+        if (pin.website) {
+          whereEl.href = pin.website
+          whereEl.textContent = pin.website
+        } else {
+          whereEl.parentElement?.remove()
+        }
+      }
+
+      const accreditationsEl = item.querySelector('[data-custom="center-accreditations"]')
+      if (accreditationsEl) {
+        const labels = pin.designationTypes.map((t) => DESIGNATION_TYPES[t]?.label || t).join(', ')
+        accreditationsEl.textContent = labels
+      }
+
       item.addEventListener('click', () => {
-        if (lat && lng) map.setView([lat, lng], 14, { animate: false })
+        map.setCenter({ lat: pin.lat, lng: pin.lng })
+        map.setZoom(CONFIG.CLICK_ZOOM)
+        // Open the marker's InfoWindow
+        const markerObj = markers.find((m) => m.getPosition().lat() === pin.lat && m.getPosition().lng() === pin.lng)
+        if (markerObj) {
+          openInfoWindow(markerObj, pin)
+        }
       })
+
       centersList.appendChild(item)
 
-      if (!lat || !lng || isNaN(lat) || isNaN(lng)) return
+      // ── Map marker ───────────────────────────────────────────────────
+      const position = { lat: pin.lat, lng: pin.lng }
+      const marker = new google.maps.Marker({
+        position,
+        icon: iconMap[pin.primaryType] || undefined,
+        map: null, // clusterer manages the map
+      })
 
-      const popupContent = `
-        <div style="max-width:200px">
-          <strong>${loc_name}</strong><br>
-          ${loc_main_address}<br>
-          ${loc_image ? `<img src="${loc_image}" alt="${loc_name}" style="width:100%;margin-top:4px;margin-bottom:4px;border-radius:4px;" />` : ''}
-          <a href="tel:${loc_main_phone}">${loc_main_phone}</a><br>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving" target="_blank">Get Directions on Google Maps</a>
-        </div>
-      `
+      marker.addListener('click', () => openInfoWindow(marker, pin))
 
-      const markerIcon =
-        iconConfig[category] ||
-        L.icon({
-          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-          iconSize: [52, 42],
-          iconAnchor: [26, 42],
-          popupAnchor: [0, -35],
-        })
-
-      const markerOptions = { icon: markerIcon }
-      if (category === 'GO2 designated') markerOptions.zIndexOffset = 1
-
-      // Create marker but DO NOT immediately add to the map; add to clusterGroup
-      const marker = L.marker([lat, lng], markerOptions).bindPopup(popupContent)
       markers.push(marker)
-      clusterGroup.addLayer(marker)
-      bounds.push([lat, lng])
+      bounds.extend(position)
     })
 
-    // Add cluster group once constructed
-    clusterGroup.addTo(map)
+    // ── Cluster ──────────────────────────────────────────────────────────
+    clusterer = new MarkerClusterer({
+      map,
+      markers,
+      renderer: new CustomClusterRenderer(),
+      algorithm: new SuperClusterAlgorithm({ radius: CONFIG.CLUSTER_RADIUS }),
+    })
 
-    // Fit bounds if we have results
-    if (bounds.length) {
+    // Fit bounds
+    if (markers.length > 1) {
       map.fitBounds(bounds)
+    } else if (markers.length === 1) {
+      map.setCenter(markers[0].getPosition())
+      map.setZoom(CONFIG.CLICK_ZOOM)
     }
   }
 
+  function openInfoWindow(marker, pin) {
+    const designationLabels = pin.designationTypes
+      .map((t) => {
+        const cfg = DESIGNATION_TYPES[t]
+        return cfg
+          ? `<span style="display:inline-block;padding:2px 8px;border-radius:3px;background:${cfg.color};color:#fff;font-size:12px;margin:2px 2px 2px 0;">${cfg.label}</span>`
+          : ''
+      })
+      .join('')
+
+    const content = `
+      <div style="max-width:240px;font-family:Arial,sans-serif;">
+        <strong style="font-size:14px;">${pin.name}</strong>
+        <div style="margin:6px 0;">${designationLabels}</div>
+        <div style="font-size:13px;color:#444;margin-bottom:6px;">${pin.address}</div>
+        ${pin.imageUrl ? `<img src="${pin.imageUrl}" alt="${pin.name}" style="width:100%;border-radius:4px;margin-bottom:6px;" />` : ''}
+        ${pin.phone ? `<div><a href="tel:${pin.phone}" style="font-size:13px;">${pin.phone}</a></div>` : ''}
+        <div style="margin-top:4px;">
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${pin.lat},${pin.lng}&travelmode=driving" target="_blank" rel="noopener" style="font-size:13px;">Get Directions</a>
+        </div>
+      </div>
+    `
+    infoWindow.setContent(content)
+    infoWindow.open(map, marker)
+  }
+
+  // ─── Step 12: Filter logic ──────────────────────────────────────────────
   function applyFilters() {
     const zipValue = zipField.value.trim()
     const categoryValue = categoriesSelect.value
 
-    let filtered = healthCenters
+    let filtered = allPinRecords
 
     if (zipValue) {
-      filtered = filtered.filter((c) => String(c.zip).startsWith(zipValue))
+      filtered = filtered.filter((p) => String(p.zip).startsWith(zipValue))
     }
     if (categoryValue && categoryValue !== 'all') {
-      filtered = filtered.filter((c) => c.category === categoryValue)
+      filtered = filtered.filter((p) => p.designationTypes.includes(categoryValue))
     }
 
     renderCenters(filtered)
   }
 
-  // Initial render
-  renderCenters(healthCenters)
+  // ─── Initial render ─────────────────────────────────────────────────────
+  renderCenters(allPinRecords)
 
-  // Bind filter events — on each change we rebuild clusters (recalculate)
+  // ─── Bind filter events ─────────────────────────────────────────────────
   zipField.addEventListener('input', applyFilters)
   categoriesSelect.addEventListener('change', applyFilters)
 
-  // remove the original template element from DOM
-  document.querySelector('[data-centers="list-item"]').remove()
+  // ─── Step 13: Remove template from DOM ──────────────────────────────────
+  document.querySelector('[data-centers="list-item"]')?.remove()
 }
