@@ -3,7 +3,7 @@
  * @param {HTMLElement} component
  */
 export default async function (component) {
-  console.log('button fixed test')
+  console.log('button fixed test 1')
   // Motion config
   const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   const DUR = prefersReduced ? 1 : 800
@@ -69,7 +69,7 @@ export default async function (component) {
     return showIcon(iconHeadset)
   }
   const setClosedIcon = () => {
-    showOnlyIcon('empathy')
+    showOnlyIcon(isSupportSuppressed() ? 'headset' : 'empathy')
     mainButton?.setAttribute('aria-expanded', 'false')
   }
   const setOpenIcon = () => {
@@ -106,6 +106,7 @@ export default async function (component) {
   setClosedIcon()
 
   let menuOpened = false
+  let menuCycle = 0
   let supportTransformed = false
   const supportLink = supportItem?.querySelector('.item-link')
   const supportIconInner = supportItem?.querySelector('.icon_inner')
@@ -142,21 +143,24 @@ export default async function (component) {
   const isVisible = (el) => el && getComputedStyle(el).display !== 'none'
   const anyMenuVisible = () => menuItems.some(isVisible)
 
-  // Open menu (phone + mail)
+  // Open menu
   const openMenu = () => {
     if (menuOpened) return
     menuOpened = true
+    menuCycle++
     setOpenIcon()
     const toShow = [...menuItems].reverse()
     toShow.forEach((el, i) => {
       el.getAnimations().forEach((a) => a.cancel())
       el.style.transform = ''
+      el.style.opacity = ''
+      el.style.willChange = ''
       el.style.display = getDisplay(el)
       el.animate([{ opacity: 0 }, { opacity: 1 }], {
         duration: DUR,
         delay: i * STEP,
         easing: EASE,
-        fill: 'forwards',
+        fill: 'both',
       })
     })
   }
@@ -215,10 +219,12 @@ export default async function (component) {
       return
     }
     menuOpened = false
+    const cycle = menuCycle
     let pending = menuItems.filter(isVisible).length
     menuItems.forEach((el) => {
       if (isVisible(el)) {
         collapseItem(el, () => {
+          if (cycle !== menuCycle) return
           pending--
           if (pending <= 0) {
             setClosedIcon()
@@ -256,6 +262,7 @@ export default async function (component) {
       e.preventDefault()
       setCookie(SUPPORT_COOKIE, '1', 7)
       collapseItem(supportItem)
+      setClosedIcon()
       return
     }
   })
