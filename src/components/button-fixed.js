@@ -121,7 +121,6 @@ export default async function (component) {
     if (supportIconInner) supportIconInner.innerHTML = formSvg
     const closeBtn = supportItem.querySelector(selCloseSupport)
     if (closeBtn) closeBtn.style.display = 'none'
-    supportItem.classList.remove('is-last')
   }
 
   const revertToSupport = () => {
@@ -132,7 +131,6 @@ export default async function (component) {
     if (supportIconInner) supportIconInner.innerHTML = supportIconOriginal
     const closeBtn = supportItem.querySelector(selCloseSupport)
     if (closeBtn) closeBtn.style.display = ''
-    supportItem.classList.add('is-last')
     menuItems = [phoneItem, mailItem].filter(Boolean)
     if (!isSupportSuppressed()) {
       supportItem.getAnimations().forEach((a) => a.cancel())
