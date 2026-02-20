@@ -5,7 +5,7 @@ import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markercluste
 // ─── Step 1: Configuration ──────────────────────────────────────────────────
 
 const CONFIG = {
-  API_URL: 'https://hcp.go2.org/wp-json/go2/v1/facilities?year=2025,2026&per_page=500',
+  API_URL: 'https://go2-centers-worker.nahuel-eba.workers.dev/centers',
   GOOGLE_MAPS_API_KEY: 'AIzaSyDzjnzJImLe2q2uc8ziZYmQVPrI9TDukww',
   DEFAULT_CENTER: { lat: 37.5, lng: -95.7 },
   DEFAULT_ZOOM: 4,
@@ -195,22 +195,6 @@ export default async function (component) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     allFacilities = data.facilities || []
-
-    // Defensive pagination
-    if (data.total_pages > 1) {
-      const pagePromises = []
-      for (let p = 2; p <= data.total_pages; p++) {
-        pagePromises.push(
-          fetch(`${CONFIG.API_URL}&page=${p}`)
-            .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-            .then((d) => d.facilities || [])
-        )
-      }
-      const pages = await Promise.all(pagePromises)
-      for (const page of pages) {
-        allFacilities = allFacilities.concat(page)
-      }
-    }
   } catch (err) {
     console.error('Error fetching facility data:', err)
     centersList.innerHTML = '<p style="padding:1rem;color:red;">Failed to load centers. Please try again later.</p>'
