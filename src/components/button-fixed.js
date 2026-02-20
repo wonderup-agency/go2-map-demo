@@ -151,6 +151,8 @@ export default async function (component) {
     setOpenIcon()
     const toShow = [...menuItems].reverse()
     toShow.forEach((el, i) => {
+      el.getAnimations().forEach((a) => a.cancel())
+      el.style.transform = ''
       el.style.display = getDisplay(el)
       el.animate([{ opacity: 0 }, { opacity: 1 }], {
         duration: DUR,
