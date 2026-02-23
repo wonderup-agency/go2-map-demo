@@ -1,4 +1,4 @@
-const WORKER_URL = 'https://go2-centers-worker.nahuel-eba.workers.dev/videos'
+const WORKER_URL = 'https://go2-worker.nahuel-eba.workers.dev/videos'
 
 // How many videos to show per "page"
 const PAGE_SIZE = 12

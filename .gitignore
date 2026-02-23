@@ -1,6 +1,11 @@
 node_modules
+.claude
 src/json/locations-src.json
+nci_go2_crossover
 contact-custom-fields.json
 ticket-custom-fields.json
-TODO.TXT
-map docs
+src/components/centers-old.js
+src/components/events-old.js
+src/components/forms/helpline-old.js
+src/components/forms/phone-buddy-old.js
+src/components/forms/volunteer-phone-buddy-old.js

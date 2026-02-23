@@ -9,8 +9,12 @@ const components = [
     importFn: () => import('./components/events.js'),
   },
   {
-    selector: "[data-component='centers']",
-    importFn: () => import('./components/centers.js'),
+    selector: "[data-component='centers-coe']",
+    importFn: () => import('./components/centers-coe.js'),
+  },
+  {
+    selector: "[data-component='centers-all']",
+    importFn: () => import('./components/centers-all.js'),
   },
   {
     selector: "[data-component='donation-form']",
