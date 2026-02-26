@@ -88,6 +88,10 @@ const components = [
     selector: "[data-component='state-map']",
     importFn: () => import('./components/state-map/state-map.js'),
   },
+  {
+    selector: "[data-component='palliative-care']",
+    importFn: () => import('./components/palliative-care.js'),
+  },
   // Add more components here
 ]
 
