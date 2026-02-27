@@ -18,32 +18,35 @@ const SHARE_CONFIG = {
   youtube: {
     profileUrl: 'https://www.youtube.com/@go2forlungcancer',
   },
-}
+};
 
-const SHARE_TEXT = 'Check out this article from GO2 for Lung Cancer'
+const SHARE_TEXT = 'Check out this article from GO2 for Lung Cancer';
 
-export default function socialShare(component) {
-  const links = component.querySelectorAll('[social-share]')
-  const pageUrl = window.location.href
+function socialShare(component) {
+  const links = component.querySelectorAll('[social-share]');
+  const pageUrl = window.location.href;
 
   links.forEach((link) => {
-    const network = link.getAttribute('social-share')
-    const config = SHARE_CONFIG[network]
+    const network = link.getAttribute('social-share');
+    const config = SHARE_CONFIG[network];
     if (!config) return
 
     // Profile-only networks (Instagram, YouTube)
     if (config.profileUrl) {
-      link.href = config.profileUrl
-      link.target = '_blank'
-      link.rel = 'noopener noreferrer'
+      link.href = config.profileUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
       return
     }
 
     // Share networks
     link.addEventListener('click', (e) => {
-      e.preventDefault()
-      const shareUrl = config.buildUrl(pageUrl, SHARE_TEXT)
-      window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer')
-    })
-  })
+      e.preventDefault();
+      const shareUrl = config.buildUrl(pageUrl, SHARE_TEXT);
+      window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+    });
+  });
 }
+
+export { socialShare as default };
+//# sourceMappingURL=social-share-BnL08HpF.js.map
