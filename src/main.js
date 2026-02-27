@@ -92,6 +92,10 @@ const components = [
     selector: "[data-component='toc']",
     importFn: () => import('./components/table-of-contents.js'),
   },
+  {
+    selector: "[data-component='social-share']",
+    importFn: () => import('./components/social-share.js'),
+  },
   // Add more components here
 ]
 
