@@ -11,12 +11,7 @@ export default function (component) {
   new Swiper(component, {
     loop: true,
 
-    autoplay: {
-      delay: 6000,
-      disableOnInteraction: false,
-    },
-
-    slidesPerView: 1.2,
+    slidesPerView: 1.1,
     spaceBetween: 24,
 
     navigation: {
@@ -28,6 +23,11 @@ export default function (component) {
       768: {
         slidesPerView: 2.1,
         spaceBetween: 48,
+
+        autoplay: {
+          delay: 6000,
+          disableOnInteraction: false,
+        },
       },
     },
   })
