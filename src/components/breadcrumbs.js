@@ -34,6 +34,7 @@ export default async function (component) {
     const leadingSeparator = leadingAttr === 'true' || leadingAttr === '1' || leadingAttr === ''
 
     const custom = (container.dataset.breadcrumbCustom || container.dataset.breadcrumCustom || '').trim()
+    const breadcrumbRoot = (container.dataset.breadcrumbRoot || container.dataset.breadcrumRoot || '').trim()
 
     container.innerHTML = ''
 
@@ -83,7 +84,8 @@ export default async function (component) {
       const uptoIndex = startIndex + i
       const isLastSeg = uptoIndex === segments.length - 1
       const href = isLastSeg ? null : `/${segments.slice(0, uptoIndex + 1).join('/')}`
-      items.push({ label: toTitle(seg), href })
+      const label = i === 0 && breadcrumbRoot ? breadcrumbRoot : toTitle(seg)
+      items.push({ label, href })
     })
 
     if (custom && items.length) {

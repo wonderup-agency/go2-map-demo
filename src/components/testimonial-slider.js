@@ -9,11 +9,26 @@ export default function (component) {
   if (!nextArrow || !prevArrow) return
 
   new Swiper(component, {
-    slidesPerView: 'auto',
-    spaceBetween: 48,
+    loop: true,
+
+    autoplay: {
+      delay: 6000,
+      disableOnInteraction: false,
+    },
+
+    slidesPerView: 1,
+    spaceBetween: 24,
+
     navigation: {
       nextEl: nextArrow,
       prevEl: prevArrow,
+    },
+
+    breakpoints: {
+      768: {
+        slidesPerView: 2.1,
+        spaceBetween: 48,
+      },
     },
   })
 }

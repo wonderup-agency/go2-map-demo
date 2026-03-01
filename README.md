@@ -104,6 +104,7 @@ This repository serves as a starter template for Webflow projects at Wonderup Ag
 - `npm run server`: Runs a local HTTP server to serve assets.
 - `npm run build`: Builds production-ready assets (minified, optimized).
 - `npm run format`: Formats all code with Prettier.
+- `npm run tunnel`: For fixs Firefox.
 
 ## Notes
 - The `webflow-snippet.html` file includes fallback logic to ensure assets load correctly even if the local server is unavailable during development.
