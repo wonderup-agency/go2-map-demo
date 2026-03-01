@@ -16,7 +16,7 @@ export default function (component) {
       disableOnInteraction: false,
     },
 
-    slidesPerView: 1,
+    slidesPerView: 1.2,
     spaceBetween: 24,
 
     navigation: {
