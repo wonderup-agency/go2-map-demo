@@ -61,6 +61,10 @@ const components = [
     importFn: () => import('./components/graphics/graphics-pies.js'),
   },
   {
+    selector: "[data-component='state-graphics']",
+    importFn: () => import('./components/graphics/state-graphics.js'),
+  },
+  {
     selector: "[data-component='breadcrumbs']",
     importFn: () => import('./components/breadcrumbs.js'),
   },
