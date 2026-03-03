@@ -7,6 +7,7 @@ import am5themes_Animated from '@amcharts/amcharts5/themes/Animated'
  */
 
 export default async function (component) {
+  console.log('test')
   am5.addLicense('AM5C-5405-1606-1671-1138')
   document.querySelectorAll('[data-graphic]').forEach((el) => {
     const chartType = el.getAttribute('data-graphic-type') || 'pie'
@@ -34,6 +35,8 @@ export default async function (component) {
       { type: item2.label, value: item2.percentage, url: item2.url },
     ]
 
+    const enableLinks = el.getAttribute('data-graphic-links') !== 'false'
+
     if (chartType === 'pie') {
       createDynamicPieChart({
         element: el,
@@ -41,11 +44,12 @@ export default async function (component) {
         sliceBorderColor,
         sliceFillColors: [sliceFillColor1, sliceFillColor2],
         data,
+        enableLinks,
       })
     }
   })
 
-  function createDynamicPieChart({ element, labelColor, sliceBorderColor, sliceFillColors, data }) {
+  function createDynamicPieChart({ element, labelColor, sliceBorderColor, sliceFillColors, data, enableLinks }) {
     am5.ready(function () {
       const root = am5.Root.new(element)
       root.setThemes([am5themes_Animated.new(root)])
@@ -91,22 +95,26 @@ export default async function (component) {
       series.ticksContainer.setAll({ layer: 90 })
 
       series.labels.template.setAll({
-        text: '{type} ↗',
+        text: enableLinks ? '{type} ↗' : '{type}',
         populateText: true,
         inside: false,
         radius: OFFSET,
         fontSize: 18,
         fontWeight: '600',
         fill: COLOR_LABEL,
-        paddingLeft: Math.round(1 * REM),
-        paddingRight: Math.round(1 * REM),
-        paddingTop: Math.round(0.5 * REM),
-        paddingBottom: Math.round(0.5 * REM),
-        interactive: true,
-        cursorOverStyle: 'pointer',
+        paddingLeft: Math.round(1.2 * REM),
+        paddingRight: Math.round(1.2 * REM),
+        paddingTop: Math.round(0.6 * REM),
+        paddingBottom: Math.round(0.6 * REM),
+        interactive: enableLinks,
+        cursorOverStyle: enableLinks ? 'pointer' : 'default',
         centerX: am5.p50,
         textAlign: 'center',
         oversizedBehavior: 'wrap',
+      })
+
+      series.ticks.template.setAll({
+        visible: false,
       })
 
       series.events.on('datavalidated', () => {
@@ -127,42 +135,46 @@ export default async function (component) {
           })
           label.set('background', bg)
 
-          label.events.on('pointerover', () => {
-            bg.animate({
-              key: 'fill',
-              to: COLOR_LABEL,
-              duration: 300,
-              easing: am5.ease.out(am5.ease.cubic),
+          if (enableLinks) {
+            label.events.on('pointerover', () => {
+              bg.animate({
+                key: 'fill',
+                to: COLOR_LABEL,
+                duration: 300,
+                easing: am5.ease.out(am5.ease.cubic),
+              })
+              label.animate({
+                key: 'fill',
+                to: am5.color(0xffffff),
+                duration: 300,
+                easing: am5.ease.out(am5.ease.cubic),
+              })
             })
-            label.animate({
-              key: 'fill',
-              to: am5.color(0xffffff),
-              duration: 300,
-              easing: am5.ease.out(am5.ease.cubic),
-            })
-          })
 
-          label.events.on('pointerout', () => {
-            bg.animate({
-              key: 'fill',
-              to: am5.color(0xffffff),
-              duration: 300,
-              easing: am5.ease.out(am5.ease.cubic),
+            label.events.on('pointerout', () => {
+              bg.animate({
+                key: 'fill',
+                to: am5.color(0xffffff),
+                duration: 300,
+                easing: am5.ease.out(am5.ease.cubic),
+              })
+              label.animate({
+                key: 'fill',
+                to: COLOR_LABEL,
+                duration: 300,
+                easing: am5.ease.out(am5.ease.cubic),
+              })
             })
-            label.animate({
-              key: 'fill',
-              to: COLOR_LABEL,
-              duration: 300,
-              easing: am5.ease.out(am5.ease.cubic),
-            })
-          })
+          }
         })
       })
 
-      series.labels.template.events.on('pointerdown', (ev) => {
-        const url = ev.target.dataItem?.dataContext?.url
-        if (url) window.open(url, 'noopener,noreferrer')
-      })
+      if (enableLinks) {
+        series.labels.template.events.on('pointerdown', (ev) => {
+          const url = ev.target.dataItem?.dataContext?.url
+          if (url) window.location.href = url
+        })
+      }
 
       series.data.setAll(data)
 
@@ -194,17 +206,23 @@ export default async function (component) {
         let maxWidthFactor
         let heightRem
 
-        if (width < 480) {
-          radiusPct = 75
-          labelRadiusFactor = 0.55
-          labelFontSize = 14
-          maxWidthFactor = 0.85
-          heightRem = 15
+        if (width < 400) {
+          radiusPct = 90
+          labelRadiusFactor = 0.2
+          labelFontSize = 12
+          maxWidthFactor = 0.95
+          heightRem = 28
+        } else if (width < 480) {
+          radiusPct = 88
+          labelRadiusFactor = 0.3
+          labelFontSize = 13
+          maxWidthFactor = 0.9
+          heightRem = 28
         } else if (width < 768) {
-          radiusPct = 78
-          labelRadiusFactor = 0.8
-          labelFontSize = 16
-          maxWidthFactor = 0.8
+          radiusPct = 85
+          labelRadiusFactor = 0.5
+          labelFontSize = 15
+          maxWidthFactor = 0.85
           heightRem = 32
         } else {
           radiusPct = 80
@@ -222,6 +240,24 @@ export default async function (component) {
           radius: labelRadius,
           fontSize: labelFontSize,
           maxWidth,
+          centerX: am5.p50,
+          textAlign: 'center',
+        })
+
+        // On mobile, use adapters to nudge labels toward center
+        const nudge = width < 480 ? Math.round(width * 0.15) : 0
+        series.dataItems.forEach((di, index) => {
+          const label = di.get('label')
+          if (!label) return
+          if (label._nudgeAdapter) {
+            label.adapters.remove('x', label._nudgeAdapter)
+            label._nudgeAdapter = null
+          }
+          if (nudge > 0) {
+            const fn = (x) => (index === 0 ? x - nudge : x + nudge)
+            label.adapters.add('x', fn)
+            label._nudgeAdapter = fn
+          }
         })
 
         element.style.height = `${heightRem}rem`
