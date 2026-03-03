@@ -55,6 +55,12 @@ function initOne(form) {
     dlog('auto-checked first amount radio', amountRadios[0].value)
   }
 
+  amountRadios.forEach((radio) => {
+    radio.addEventListener('change', () => {
+      isOtherSelected = false
+    })
+  })
+
   const otherButton = form.querySelector("[data-donation-form='other']")
   dlog('otherButton', otherButton ? 'FOUND' : 'MISSING')
 
@@ -63,6 +69,13 @@ function initOne(form) {
     e.preventDefault()
 
     const formData = new FormData(form)
+
+    // Restore radio names before reading form data
+    form.querySelectorAll('[data-original-name]').forEach((radio) => {
+      radio.name = radio.dataset.originalName
+      delete radio.dataset.originalName
+    })
+
     const recurring = formData.get('recurring') ?? 'once'
 
     const rawAmount = formData.get('donation-amount') ?? formData.get('amount') ?? formData.get('donation_amount')
@@ -77,29 +90,40 @@ function initOne(form) {
       return
     }
 
+    const donationPayload = { recurring }
+
+    // ONLY send amount if not "Other"
+    if (!isOtherSelected && amount) {
+      donationPayload.amount = amount
+    }
+
     FundraiseUp.openCheckout(campaignId, {
-      donation: { recurring, amount },
+      donation: donationPayload,
     })
   })
 
+  let isOtherSelected = false
+
   if (otherButton) {
     otherButton.addEventListener('click', (e) => {
-      dlog('OTHER click fired', form)
       e.preventDefault()
 
-      const formData = new FormData(form)
-      const recurring = formData.get('recurring') ?? 'once'
+      isOtherSelected = true
 
-      dlog('other payload', { campaignId, recurring })
+      // uncheck predefined radios
+      const amountRadios = form.querySelectorAll('input[name="donation-amount"][type="radio"]')
 
-      if (typeof FundraiseUp?.openCheckout !== 'function') {
-        dlog('ABORT: FundraiseUp.openCheckout not available', { FundraiseUp })
-        return
-      }
-
-      FundraiseUp.openCheckout(campaignId, {
-        donation: { recurring },
+      amountRadios.forEach((radio) => {
+        radio.checked = false
       })
+
+      // clear custom input if exists
+      const customInput =
+        form.querySelector('input[name="amount"]') || form.querySelector('input[name="donation_amount"]')
+
+      if (customInput) customInput.value = ''
+
+      dlog('Other selected → waiting for Donate click')
     })
   }
 }

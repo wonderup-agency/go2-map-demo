@@ -202,19 +202,19 @@ export default function initTabs(component) {
       function collapseActive() {
         if (!activeContent || isAnimating) return
         isAnimating = true
+
         const tl = gsap.timeline({
           defaults: { duration: 0.3, ease: 'power2.out' },
           onComplete: () => {
             activeContent.classList.remove('active')
-            activeVisual?.classList.remove('active')
             activeContent = null
-            activeVisual = null
             isAnimating = false
             if (isDesktop()) gsap.delayedCall(0, recomputeHeight)
           },
         })
+
         closeDetails(activeContent, tl)
-        if (activeVisual) tl.to(activeVisual, { autoAlpha: 0, xPercent: 3 }, 0)
+
         if (isDesktop())
           tl.add(
             () =>
