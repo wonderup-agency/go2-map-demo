@@ -1,3 +1,6 @@
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
+import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer';
+
 // centers-coe.js
 //
 // This component fetches facility data from an API, then draws pins on a
@@ -5,34 +8,32 @@
 // Users can filter centers by typing a zip code and/or selecting designation
 // type checkboxes (e.g. Screening, Cancer Care, etc.).
 
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
-import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
 
 // =============================================================================
 // SETTINGS — edit these values to configure the map
 // =============================================================================
 
 // Where to fetch the list of facilities from
-var API_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers'
+var API_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers';
 
 // Where to fetch the list of available designation types from
-var DESIGNATIONS_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers/designations'
+var DESIGNATIONS_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers/designations';
 
 // Google Maps API key
-var GOOGLE_MAPS_API_KEY = 'AIzaSyDzjnzJImLe2q2uc8ziZYmQVPrI9TDukww'
+var GOOGLE_MAPS_API_KEY = 'AIzaSyDzjnzJImLe2q2uc8ziZYmQVPrI9TDukww';
 
 // Where the map is centered when it first loads (lat/lng of central US)
-var STARTING_LAT = 37.5
-var STARTING_LNG = -95.7
+var STARTING_LAT = 37.5;
+var STARTING_LNG = -95.7;
 
 // How far zoomed in/out the map starts (lower = more zoomed out)
-var STARTING_ZOOM = 4
+var STARTING_ZOOM = 4;
 
 // How far to zoom in when a user clicks on a center
-var CLICK_ZOOM = 14
+var CLICK_ZOOM = 14;
 
 // How close pins need to be (in pixels) before they merge into a cluster
-var CLUSTER_RADIUS = 60
+var CLUSTER_RADIUS = 60;
 
 // -----------------------------------------------------------------------------
 // PIN IMAGES — each pin type has its own image, size, and anchor point.
@@ -47,19 +48,19 @@ var COE_PIN = {
   imageUrl: 'https://cdn.prod.website-files.com/685abc7fe66bf3b67a6af38e/69a5829ede217c58b6303bb4_pin-coe-1.png',
   size: [52, 52],
   anchor: [26, 52],
-}
+};
 
 var NCI_PIN = {
   imageUrl: 'https://cdn.prod.website-files.com/685abc7fe66bf3b67a6af38e/699cbe556ade1b088be0322b_pin-nci.png',
   size: [32, 32],
   anchor: [16, 32],
-}
+};
 
 var COC_PIN = {
   imageUrl: 'https://cdn.prod.website-files.com/685abc7fe66bf3b67a6af38e/699cbe5541e827aa53093410_pin-coc.png',
   size: [32, 32],
   anchor: [16, 32],
-}
+};
 
 // -----------------------------------------------------------------------------
 // DESIGNATION LABELS — human-readable names for the designation types
@@ -72,7 +73,7 @@ var DESIGNATION_LABELS = {
   cancer_care: 'Cancer Care',
   ipn: 'IPN',
   biomarker: 'Biomarker',
-}
+};
 
 // Fallback: if a type isn't in the list above, capitalize it and replace underscores
 function getDesignationLabel(type) {
@@ -80,7 +81,7 @@ function getDesignationLabel(type) {
     return DESIGNATION_LABELS[type]
   }
   // "some_new_type" → "Some new type"
-  var words = type.replace(/_/g, ' ')
+  var words = type.replace(/_/g, ' ');
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -106,13 +107,13 @@ function createGoogleMapsIcon(pinConfig) {
  */
 function createClusterIcon(count) {
   // Make the bubble bigger when the number has more digits
-  var numberOfDigits = String(count).length
-  var bubbleSize = 36
-  if (numberOfDigits === 2) bubbleSize = 40
-  if (numberOfDigits > 2) bubbleSize = 48
+  var numberOfDigits = String(count).length;
+  var bubbleSize = 36;
+  if (numberOfDigits === 2) bubbleSize = 40;
+  if (numberOfDigits > 2) bubbleSize = 48;
 
-  var center = bubbleSize / 2
-  var radius = center - 2
+  var center = bubbleSize / 2;
+  var radius = center - 2;
 
   var svg =
     '<svg xmlns="http://www.w3.org/2000/svg"' +
@@ -145,7 +146,7 @@ function createClusterIcon(count) {
     ' font-weight="800" font-size="14">' +
     count +
     '</text>' +
-    '</svg>'
+    '</svg>';
 
   return {
     url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
@@ -167,10 +168,10 @@ function createClusterIcon(count) {
  * so we can filter by designation type later.
  */
 function turnFacilitiesIntoPins(facilities) {
-  var allPins = []
+  var allPins = [];
 
   for (var i = 0; i < facilities.length; i++) {
-    var facility = facilities[i]
+    var facility = facilities[i];
 
     // Skip facilities that have no designations at all
     if (!facility.designations || facility.designations.length === 0) {
@@ -178,35 +179,35 @@ function turnFacilitiesIntoPins(facilities) {
     }
 
     // Collect ALL designation types this facility has (e.g. ["screening", "cancer_care"])
-    var facilityDesignationTypes = []
+    var facilityDesignationTypes = [];
     for (var d = 0; d < facility.designations.length; d++) {
-      var desType = facility.designations[d].type
+      var desType = facility.designations[d].type;
       if (desType && facilityDesignationTypes.indexOf(desType) === -1) {
-        facilityDesignationTypes.push(desType)
+        facilityDesignationTypes.push(desType);
       }
     }
 
     // We use this to avoid placing two pins at the exact same spot for one facility.
     // The key is "lat,lng" and the value is the location info.
-    var uniqueLocations = {}
+    var uniqueLocations = {};
 
     for (var j = 0; j < facility.designations.length; j++) {
-      var designation = facility.designations[j]
+      var designation = facility.designations[j];
 
       // Check if this designation has an override address with valid coordinates
       var hasOverride =
         designation.overrides &&
         designation.overrides.address &&
         designation.overrides.address.latitude != null &&
-        designation.overrides.address.longitude != null
+        designation.overrides.address.longitude != null;
 
-      var lat, lng, address, streetAddress, locationCity, locationState, locationZip, phone, website
+      var lat, lng, address, streetAddress, locationCity, locationState, locationZip, phone, website;
 
       if (hasOverride) {
         // Use the override address (different building/location)
-        var overrideAddr = designation.overrides.address
-        lat = parseFloat(overrideAddr.latitude)
-        lng = parseFloat(overrideAddr.longitude)
+        var overrideAddr = designation.overrides.address;
+        lat = parseFloat(overrideAddr.latitude);
+        lng = parseFloat(overrideAddr.longitude);
 
         // Build a readable address string from the override parts
         var overrideParts = [
@@ -215,30 +216,30 @@ function turnFacilitiesIntoPins(facilities) {
           overrideAddr.city,
           overrideAddr.state,
           overrideAddr.zip,
-        ]
-        address = overrideParts.filter(Boolean).join(', ')
-        streetAddress = [overrideAddr.line1, overrideAddr.line2].filter(Boolean).join(', ')
-        locationCity = overrideAddr.city || ''
-        locationState = overrideAddr.state || ''
-        locationZip = overrideAddr.zip || ''
+        ];
+        address = overrideParts.filter(Boolean).join(', ');
+        streetAddress = [overrideAddr.line1, overrideAddr.line2].filter(Boolean).join(', ');
+        locationCity = overrideAddr.city || '';
+        locationState = overrideAddr.state || '';
+        locationZip = overrideAddr.zip || '';
 
-        phone = designation.overrides.phone || facility.phone
-        website = designation.overrides.url || facility.website
+        phone = designation.overrides.phone || facility.phone;
+        website = designation.overrides.url || facility.website;
       } else {
         // Use the facility's main address
-        lat = parseFloat(facility.latitude)
-        lng = parseFloat(facility.longitude)
+        lat = parseFloat(facility.latitude);
+        lng = parseFloat(facility.longitude);
 
-        var mainAddr = facility.address || {}
-        var mainParts = [mainAddr.line1, mainAddr.line2, mainAddr.city, mainAddr.state, mainAddr.zip]
-        address = mainParts.filter(Boolean).join(', ')
-        streetAddress = [mainAddr.line1, mainAddr.line2].filter(Boolean).join(', ')
-        locationCity = mainAddr.city || ''
-        locationState = mainAddr.state || ''
-        locationZip = mainAddr.zip || ''
+        var mainAddr = facility.address || {};
+        var mainParts = [mainAddr.line1, mainAddr.line2, mainAddr.city, mainAddr.state, mainAddr.zip];
+        address = mainParts.filter(Boolean).join(', ');
+        streetAddress = [mainAddr.line1, mainAddr.line2].filter(Boolean).join(', ');
+        locationCity = mainAddr.city || '';
+        locationState = mainAddr.state || '';
+        locationZip = mainAddr.zip || '';
 
-        phone = facility.phone
-        website = facility.website
+        phone = facility.phone;
+        website = facility.website;
       }
 
       // Skip if the coordinates are not valid numbers
@@ -247,7 +248,7 @@ function turnFacilitiesIntoPins(facilities) {
       }
 
       // Only keep the first location we find at each lat/lng
-      var locationKey = lat + ',' + lng
+      var locationKey = lat + ',' + lng;
       if (!uniqueLocations[locationKey]) {
         uniqueLocations[locationKey] = {
           lat: lat,
@@ -259,16 +260,16 @@ function turnFacilitiesIntoPins(facilities) {
           zip: locationZip,
           phone: phone,
           website: website,
-        }
+        };
       }
     }
 
     // Create a pin for each unique location of this facility
-    var facilityAddr = facility.address || {}
-    var locationKeys = Object.keys(uniqueLocations)
+    facility.address || {};
+    var locationKeys = Object.keys(uniqueLocations);
 
     for (var k = 0; k < locationKeys.length; k++) {
-      var location = uniqueLocations[locationKeys[k]]
+      var location = uniqueLocations[locationKeys[k]];
 
       allPins.push({
         fid: facility.fid,
@@ -284,7 +285,7 @@ function turnFacilitiesIntoPins(facilities) {
         city: location.city,
         state: location.state,
         designationTypes: facilityDesignationTypes,
-      })
+      });
     }
   }
 
@@ -295,33 +296,33 @@ function turnFacilitiesIntoPins(facilities) {
 // MAIN — this function runs when the component loads on the page
 // =============================================================================
 
-export default async function (component) {
-  console.log('[COE] Component initializing...')
+async function centersCoe (component) {
+  console.log('[COE] Component initializing...');
 
   // --------------------------------------------------------------------------
   // 1. FIND THE HTML ELEMENTS WE NEED
   // --------------------------------------------------------------------------
 
   // The scrollable list of centers next to the map
-  var centersList = component.querySelector("[data-centers='list']")
+  var centersList = component.querySelector("[data-centers='list']");
 
   // The div where the Google Map will be rendered
-  var mapContainer = component.querySelector("[data-centers='map']")
+  var mapContainer = component.querySelector("[data-centers='map']");
 
   // The zip code text input for filtering
-  var zipInput = component.querySelector("[data-custom='centers-zip-field']")
+  var zipInput = component.querySelector("[data-custom='centers-zip-field']");
 
   // The dropdown nav that holds the designation checkboxes
   // (In Webflow this is the <nav> inside the "Designations" dropdown)
-  var checkboxContainer = component.querySelector('.map_filters-right-category-nav')
+  var checkboxContainer = component.querySelector('.map_filters-right-category-nav');
 
   // Clone the list item template (we'll reuse this to create each list entry)
-  var listItemTemplate = document.querySelector('[data-centers="list-item"]').cloneNode(true)
+  var listItemTemplate = document.querySelector('[data-centers="list-item"]').cloneNode(true);
 
   // Check if this instance should only show screening centers.
   // Set data-show-only-screening="true" on the component element in Webflow
   // to lock this map to screening-only mode (hides the designation checkboxes).
-  var showOnlyScreening = component.getAttribute('data-show-only-screening') === 'true'
+  var showOnlyScreening = component.getAttribute('data-show-only-screening') === 'true';
 
   console.log('[COE] DOM elements found:', {
     centersList: !!centersList,
@@ -329,26 +330,26 @@ export default async function (component) {
     zipInput: !!zipInput,
     checkboxContainer: !!checkboxContainer,
     listItemTemplate: !!listItemTemplate,
-  })
-  console.log('[COE] Mode:', showOnlyScreening ? 'SCREENING-ONLY' : 'NORMAL (all designations)')
+  });
+  console.log('[COE] Mode:', showOnlyScreening ? 'SCREENING-ONLY' : 'NORMAL (all designations)');
 
   // Show a loading message while data is being fetched
-  centersList.innerHTML = '<p style="padding:1rem;color:#666;">Loading centers...</p>'
+  centersList.innerHTML = '<p style="padding:1rem;color:#666;">Loading centers...</p>';
 
   // Prevent all form submissions within this component and disable Webflow form handling
-  var forms = component.querySelectorAll('form')
+  var forms = component.querySelectorAll('form');
   for (var i = 0; i < forms.length; i++) {
     forms[i].addEventListener('submit', function (e) {
-      e.preventDefault()
-    })
-    forms[i].removeAttribute('data-wf-page-id')
-    forms[i].removeAttribute('data-wf-element-id')
-    forms[i].removeAttribute('data-name')
-    forms[i].removeAttribute('action')
+      e.preventDefault();
+    });
+    forms[i].removeAttribute('data-wf-page-id');
+    forms[i].removeAttribute('data-wf-element-id');
+    forms[i].removeAttribute('data-name');
+    forms[i].removeAttribute('action');
   }
-  var formMessages = component.querySelectorAll('.w-form-done, .w-form-fail')
+  var formMessages = component.querySelectorAll('.w-form-done, .w-form-fail');
   for (var i = 0; i < formMessages.length; i++) {
-    formMessages[i].remove()
+    formMessages[i].remove();
   }
 
   // --------------------------------------------------------------------------
@@ -356,14 +357,14 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   try {
-    setOptions({ key: GOOGLE_MAPS_API_KEY, v: 'weekly' })
-    await importLibrary('maps')
-    await importLibrary('marker')
-    console.log('[COE] Google Maps loaded successfully')
+    setOptions({ key: GOOGLE_MAPS_API_KEY, v: 'weekly' });
+    await importLibrary('maps');
+    await importLibrary('marker');
+    console.log('[COE] Google Maps loaded successfully');
   } catch (error) {
-    console.error('Google Maps failed to load:', error)
+    console.error('Google Maps failed to load:', error);
     mapContainer.innerHTML =
-      '<p style="padding:1rem;color:red;">Failed to load Google Maps. Please try again later.</p>'
+      '<p style="padding:1rem;color:red;">Failed to load Google Maps. Please try again later.</p>';
     return
   }
 
@@ -374,90 +375,90 @@ export default async function (component) {
   var map = new google.maps.Map(mapContainer, {
     center: { lat: STARTING_LAT, lng: STARTING_LNG },
     zoom: STARTING_ZOOM,
-  })
+  });
 
   // --------------------------------------------------------------------------
   // 4. PREPARE THE PIN ICONS
   //    Convert our simple pin configs into the format Google Maps expects.
   // --------------------------------------------------------------------------
 
-  var coeIcon = createGoogleMapsIcon(COE_PIN)
-  var nciIcon = createGoogleMapsIcon(NCI_PIN)
-  var cocIcon = createGoogleMapsIcon(COC_PIN)
+  var coeIcon = createGoogleMapsIcon(COE_PIN);
+  createGoogleMapsIcon(NCI_PIN);
+  createGoogleMapsIcon(COC_PIN);
 
   // This is the icon used for all markers right now.
   // TODO: assign the correct icon per facility once the logic is defined.
-  var defaultIcon = coeIcon
+  var defaultIcon = coeIcon;
 
   // --------------------------------------------------------------------------
   // 5. CREATE A SHARED INFO WINDOW
   //    Only one popup can be open at a time — Google Maps reuses this one.
   // --------------------------------------------------------------------------
 
-  var infoWindow = new google.maps.InfoWindow({ disableAutoPan: true })
+  var infoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
 
   // Remove the default Google Maps InfoWindow styling (bg, shadow, arrow, close button)
-  var infoWindowStyle = document.createElement('style')
+  var infoWindowStyle = document.createElement('style');
   infoWindowStyle.textContent =
     '.gm-style-iw { background: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; max-width: none !important; }' +
     '.gm-style-iw-d { overflow: auto !important; padding: 0 !important; max-width: none !important; }' +
     '.gm-style-iw-tc { display: none !important; }' +
-    '.gm-ui-hover-effect { display: none !important; }'
-  document.head.appendChild(infoWindowStyle)
+    '.gm-ui-hover-effect { display: none !important; }';
+  document.head.appendChild(infoWindowStyle);
 
   // Keep the info window open when the user hovers over it
   infoWindow.addListener('domready', function () {
-    var iwContent = document.querySelector('.gm-style-iw')
+    var iwContent = document.querySelector('.gm-style-iw');
     if (iwContent) {
       iwContent.onmouseover = function () {
-        clearTimeout(closeTimeout)
-      }
+        clearTimeout(closeTimeout);
+      };
       iwContent.onmouseout = function () {
         closeTimeout = setTimeout(function () {
-          infoWindow.close()
-        }, 300)
-      }
+          infoWindow.close();
+        }, 300);
+      };
     }
-  })
+  });
 
   // --------------------------------------------------------------------------
   // 6. FETCH DATA — facilities and designations at the same time
   // --------------------------------------------------------------------------
 
-  var allFacilities = []
-  var designationTypes = [] // e.g. ["screening", "cancer_care", "ipn", "biomarker"]
+  var allFacilities = [];
+  var designationTypes = []; // e.g. ["screening", "cancer_care", "ipn", "biomarker"]
 
   try {
     // Fetch both endpoints at the same time for speed
-    var facilitiesPromise = fetch(API_URL)
-    var designationsPromise = fetch(DESIGNATIONS_URL)
+    var facilitiesPromise = fetch(API_URL);
+    var designationsPromise = fetch(DESIGNATIONS_URL);
 
     // Wait for the facilities response
-    var facilitiesResponse = await facilitiesPromise
+    var facilitiesResponse = await facilitiesPromise;
     if (!facilitiesResponse.ok) {
       throw new Error('Facilities HTTP ' + facilitiesResponse.status)
     }
-    var facilitiesData = await facilitiesResponse.json()
-    allFacilities = facilitiesData.facilities || []
-    console.log('[COE] Facilities fetched:', allFacilities.length, 'facilities')
+    var facilitiesData = await facilitiesResponse.json();
+    allFacilities = facilitiesData.facilities || [];
+    console.log('[COE] Facilities fetched:', allFacilities.length, 'facilities');
 
     // Wait for the designations response
-    var designationsResponse = await designationsPromise
+    var designationsResponse = await designationsPromise;
     if (!designationsResponse.ok) {
       throw new Error('Designations HTTP ' + designationsResponse.status)
     }
-    var designationsData = await designationsResponse.json()
+    var designationsData = await designationsResponse.json();
 
     // Extract just the type names: ["screening", "cancer_care", "ipn", "biomarker"]
     if (designationsData.types && designationsData.types.length > 0) {
       for (var i = 0; i < designationsData.types.length; i++) {
-        designationTypes.push(designationsData.types[i].type)
+        designationTypes.push(designationsData.types[i].type);
       }
     }
-    console.log('[COE] Designation types from API:', designationTypes)
+    console.log('[COE] Designation types from API:', designationTypes);
   } catch (error) {
-    console.error('Error fetching data:', error)
-    centersList.innerHTML = '<p style="padding:1rem;color:red;">Failed to load centers. Please try again later.</p>'
+    console.error('Error fetching data:', error);
+    centersList.innerHTML = '<p style="padding:1rem;color:red;">Failed to load centers. Please try again later.</p>';
     return
   }
 
@@ -472,81 +473,81 @@ export default async function (component) {
     // In screening-only mode, remove the checkbox filter wrapper from the page
     // entirely so the user can't toggle designation types.
     if (checkboxContainer) {
-      var checkboxFilterWrapper = checkboxContainer.closest('.map_filters-right')
-      console.log('[COE] Screening-only mode — removing checkbox wrapper:', !!checkboxFilterWrapper)
+      var checkboxFilterWrapper = checkboxContainer.closest('.map_filters-right');
+      console.log('[COE] Screening-only mode — removing checkbox wrapper:', !!checkboxFilterWrapper);
       if (checkboxFilterWrapper) {
-        checkboxFilterWrapper.remove()
+        checkboxFilterWrapper.remove();
       }
     }
 
     // Also remove the map references/legend section
-    var mapReferences = component.querySelector('.map_references')
+    var mapReferences = component.querySelector('.map_references');
     if (mapReferences) {
-      mapReferences.remove()
+      mapReferences.remove();
     }
   } else if (checkboxContainer) {
     // Normal mode — populate the checkboxes from the API
 
     // Clear the placeholder checkboxes that were in the Webflow template
-    checkboxContainer.innerHTML = ''
+    checkboxContainer.innerHTML = '';
 
     for (var i = 0; i < designationTypes.length; i++) {
-      var type = designationTypes[i] // e.g. "cancer_care"
-      var label = getDesignationLabel(type) // e.g. "Cancer Care"
+      var type = designationTypes[i]; // e.g. "cancer_care"
+      var label = getDesignationLabel(type); // e.g. "Cancer Care"
 
       // Build the checkbox wrapper (same HTML structure as the Webflow template)
-      var wrapper = document.createElement('div')
-      wrapper.className = 'multi-step_checkbox-wrapper'
+      var wrapper = document.createElement('div');
+      wrapper.className = 'multi-step_checkbox-wrapper';
 
-      var checkbox = document.createElement('input')
-      checkbox.type = 'checkbox'
-      checkbox.name = 'designations'
-      checkbox.id = 'designation-' + type // e.g. "designation-screening"
-      checkbox.value = type // e.g. "screening"
-      checkbox.className = 'multi-step_checkbox_icon'
-      checkbox.checked = true
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'designations';
+      checkbox.id = 'designation-' + type; // e.g. "designation-screening"
+      checkbox.value = type; // e.g. "screening"
+      checkbox.className = 'multi-step_checkbox_icon';
+      checkbox.checked = true;
 
-      var labelEl = document.createElement('label')
-      labelEl.htmlFor = checkbox.id
-      labelEl.className = 'form_field-label'
-      labelEl.textContent = label
+      var labelEl = document.createElement('label');
+      labelEl.htmlFor = checkbox.id;
+      labelEl.className = 'form_field-label';
+      labelEl.textContent = label;
 
-      wrapper.appendChild(checkbox)
-      wrapper.appendChild(labelEl)
-      checkboxContainer.appendChild(wrapper)
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(labelEl);
+      checkboxContainer.appendChild(wrapper);
 
       // Re-render the map and list whenever a checkbox is toggled
-      checkbox.addEventListener('change', applyAllFilters)
+      checkbox.addEventListener('change', applyAllFilters);
     }
-    console.log('[COE] Checkboxes created for:', designationTypes)
+    console.log('[COE] Checkboxes created for:', designationTypes);
   }
 
   // --------------------------------------------------------------------------
   // 8. TRANSFORM THE RAW DATA INTO PIN RECORDS
   // --------------------------------------------------------------------------
 
-  var allPins = turnFacilitiesIntoPins(allFacilities)
-  console.log('[COE] Pins created from facilities:', allPins.length, 'pins')
+  var allPins = turnFacilitiesIntoPins(allFacilities);
+  console.log('[COE] Pins created from facilities:', allPins.length, 'pins');
 
   // If screening-only mode is on, keep only pins that have a "screening" designation
   if (showOnlyScreening) {
-    var screeningOnly = []
+    var screeningOnly = [];
     for (var i = 0; i < allPins.length; i++) {
       if (allPins[i].designationTypes.indexOf('screening') !== -1) {
-        screeningOnly.push(allPins[i])
+        screeningOnly.push(allPins[i]);
       }
     }
-    allPins = screeningOnly
-    console.log('[COE] Screening-only filter applied:', allPins.length, 'pins remaining')
+    allPins = screeningOnly;
+    console.log('[COE] Screening-only filter applied:', allPins.length, 'pins remaining');
   }
 
   // --------------------------------------------------------------------------
   // 9. STATE — these variables are updated every time we re-render
   // --------------------------------------------------------------------------
 
-  var currentMarkers = [] // Google Maps marker objects currently on the map
-  var currentClusterer = null // the clustering engine that groups nearby markers
-  var closeTimeout = null // timer for delayed info window close on mouseout
+  var currentMarkers = []; // Google Maps marker objects currently on the map
+  var currentClusterer = null; // the clustering engine that groups nearby markers
+  var closeTimeout = null; // timer for delayed info window close on mouseout
 
   // --------------------------------------------------------------------------
   // 10. RENDER FUNCTION — draws pins on the map and items in the list
@@ -554,125 +555,125 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function renderCenters(pinsToShow) {
-    console.log('[COE] Rendering', pinsToShow.length, 'centers')
+    console.log('[COE] Rendering', pinsToShow.length, 'centers');
 
     // Clear the old list
-    centersList.innerHTML = ''
+    centersList.innerHTML = '';
 
     // Remove old clusters and markers from the map
     if (currentClusterer) {
-      currentClusterer.clearMarkers()
-      currentClusterer = null
+      currentClusterer.clearMarkers();
+      currentClusterer = null;
     }
     for (var i = 0; i < currentMarkers.length; i++) {
-      currentMarkers[i].setMap(null)
+      currentMarkers[i].setMap(null);
     }
-    currentMarkers = []
+    currentMarkers = [];
 
     // If there's nothing to show, display a message and stop
     if (pinsToShow.length === 0) {
-      centersList.innerHTML = '<p style="padding:1rem;color:#666;">No centers match your search.</p>'
+      centersList.innerHTML = '<p style="padding:1rem;color:#666;">No centers match your search.</p>';
       return
     }
 
     // We'll use "bounds" to auto-zoom the map to fit all visible pins
-    var bounds = new google.maps.LatLngBounds()
+    var bounds = new google.maps.LatLngBounds();
 
     for (var i = 0; i < pinsToShow.length; i++) {
-      var pin = pinsToShow[i]
+      var pin = pinsToShow[i];
 
       // ── Create the list item ────────────────────────────────────────
-      var listItem = listItemTemplate.cloneNode(true)
-      listItem.dataset.id = pin.fid
+      var listItem = listItemTemplate.cloneNode(true);
+      listItem.dataset.id = pin.fid;
 
       // Set the list item icon to match the map pin image
-      var iconElement = listItem.querySelector('[data-center="icon"]')
+      var iconElement = listItem.querySelector('[data-center="icon"]');
       if (iconElement) {
-        iconElement.src = defaultIcon.url
-        iconElement.alt = 'Map pin'
+        iconElement.src = defaultIcon.url;
+        iconElement.alt = 'Map pin';
       }
 
-      var imageElement = listItem.querySelector('[data-center="image"]')
+      var imageElement = listItem.querySelector('[data-center="image"]');
       if (imageElement) {
         if (pin.imageUrl) {
-          imageElement.src = pin.imageUrl
-          imageElement.alt = pin.name
+          imageElement.src = pin.imageUrl;
+          imageElement.alt = pin.name;
         } else {
-          imageElement.remove()
+          imageElement.remove();
         }
       }
 
-      var nameElement = listItem.querySelector('[data-custom="center-name"]')
-      if (nameElement) nameElement.textContent = pin.name
+      var nameElement = listItem.querySelector('[data-custom="center-name"]');
+      if (nameElement) nameElement.textContent = pin.name;
 
-      var typeElement = listItem.querySelector('[data-custom="center-type"]')
+      var typeElement = listItem.querySelector('[data-custom="center-type"]');
       if (typeElement) {
-        var labels = []
+        var labels = [];
         for (var d = 0; d < pin.designationTypes.length; d++) {
-          labels.push(getDesignationLabel(pin.designationTypes[d]))
+          labels.push(getDesignationLabel(pin.designationTypes[d]));
         }
-        typeElement.textContent = labels.join(', ')
+        typeElement.textContent = labels.join(', ');
       }
 
-      var addressElement = listItem.querySelector('[data-custom="center-address"]')
-      if (addressElement) addressElement.textContent = pin.streetAddress
+      var addressElement = listItem.querySelector('[data-custom="center-address"]');
+      if (addressElement) addressElement.textContent = pin.streetAddress;
 
-      var cityStateElement = listItem.querySelector('[data-custom="center-city-state"]')
+      var cityStateElement = listItem.querySelector('[data-custom="center-city-state"]');
       if (cityStateElement) {
-        cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ')
+        cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ');
       }
 
-      var phoneLink = listItem.querySelector('[data-centers="phone"]')
+      var phoneLink = listItem.querySelector('[data-centers="phone"]');
       if (phoneLink) {
         if (pin.phone) {
-          phoneLink.textContent = pin.phone
-          phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '')
+          phoneLink.textContent = pin.phone;
+          phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '');
         } else {
           if (phoneLink.parentElement) {
-            phoneLink.parentElement.remove()
+            phoneLink.parentElement.remove();
           }
         }
       }
 
-      var websiteLink = listItem.querySelector('[data-center="website"]')
+      var websiteLink = listItem.querySelector('[data-center="website"]');
       if (websiteLink) {
         if (pin.website) {
-          websiteLink.href = pin.website
+          websiteLink.href = pin.website;
         } else {
-          websiteLink.remove()
+          websiteLink.remove();
         }
       }
 
-      var directionsLink = listItem.querySelector('[data-centers="directions"]')
+      var directionsLink = listItem.querySelector('[data-centers="directions"]');
       if (directionsLink) {
         directionsLink.href =
-          'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving'
+          'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving';
       }
 
       // When a list item is clicked, zoom the map to that center and open its popup
-      listItem.addEventListener('click', createListItemClickHandler(pin))
+      listItem.addEventListener('click', createListItemClickHandler(pin));
 
-      centersList.appendChild(listItem)
+      centersList.appendChild(listItem);
 
       // ── Create the map marker ───────────────────────────────────────
-      var position = { lat: pin.lat, lng: pin.lng }
+      var position = { lat: pin.lat, lng: pin.lng };
 
       var marker = new google.maps.Marker({
         position: position,
         icon: defaultIcon,
         map: null, // the clusterer will add it to the map
-      })
+      });
 
       // When a pin on the map is hovered, open its popup
-      marker.addListener('mouseover', createMarkerClickHandler(marker, pin))
+      marker.addListener('mouseover', createMarkerClickHandler(marker, pin));
       marker.addListener('mouseout', function () {
         closeTimeout = setTimeout(function () {
-          infoWindow.close()
-        }, 300)
-      })
+          infoWindow.close();
+        }, 300);
+      });
 
-      currentMarkers.push(marker)
-      bounds.extend(position)
+      currentMarkers.push(marker);
+      bounds.extend(position);
     }
 
     // ── Set up clustering ───────────────────────────────────────────────
@@ -682,14 +683,14 @@ export default async function (component) {
       markers: currentMarkers,
       renderer: { render: renderCluster },
       algorithm: new SuperClusterAlgorithm({ radius: CLUSTER_RADIUS }),
-    })
+    });
 
     // ── Adjust the map view to show all pins ────────────────────────────
     if (currentMarkers.length > 1) {
-      map.fitBounds(bounds)
+      map.fitBounds(bounds);
     } else if (currentMarkers.length === 1) {
-      map.setCenter(currentMarkers[0].getPosition())
-      map.setZoom(CLICK_ZOOM)
+      map.setCenter(currentMarkers[0].getPosition());
+      map.setZoom(CLICK_ZOOM);
     }
   }
 
@@ -699,72 +700,72 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function buildInfoWindowElement(pin) {
-    var item = listItemTemplate.cloneNode(true)
-    item.style.maxWidth = '18.5rem'
+    var item = listItemTemplate.cloneNode(true);
+    item.style.maxWidth = '18.5rem';
 
-    var iconElement = item.querySelector('[data-center="icon"]')
+    var iconElement = item.querySelector('[data-center="icon"]');
     if (iconElement) {
-      iconElement.src = defaultIcon.url
-      iconElement.alt = 'Map pin'
+      iconElement.src = defaultIcon.url;
+      iconElement.alt = 'Map pin';
     }
 
-    var imageElement = item.querySelector('[data-center="image"]')
+    var imageElement = item.querySelector('[data-center="image"]');
     if (imageElement) {
       if (pin.imageUrl) {
-        imageElement.src = pin.imageUrl
-        imageElement.alt = pin.name
-        imageElement.style.maxHeight = '8rem'
-        imageElement.style.objectFit = 'cover'
+        imageElement.src = pin.imageUrl;
+        imageElement.alt = pin.name;
+        imageElement.style.maxHeight = '8rem';
+        imageElement.style.objectFit = 'cover';
       } else {
-        imageElement.remove()
+        imageElement.remove();
       }
     }
 
-    var nameElement = item.querySelector('[data-custom="center-name"]')
-    if (nameElement) nameElement.textContent = pin.name
+    var nameElement = item.querySelector('[data-custom="center-name"]');
+    if (nameElement) nameElement.textContent = pin.name;
 
-    var typeElement = item.querySelector('[data-custom="center-type"]')
+    var typeElement = item.querySelector('[data-custom="center-type"]');
     if (typeElement) {
-      var labels = []
+      var labels = [];
       for (var d = 0; d < pin.designationTypes.length; d++) {
-        labels.push(getDesignationLabel(pin.designationTypes[d]))
+        labels.push(getDesignationLabel(pin.designationTypes[d]));
       }
-      typeElement.textContent = labels.join(', ')
+      typeElement.textContent = labels.join(', ');
     }
 
-    var addressElement = item.querySelector('[data-custom="center-address"]')
-    if (addressElement) addressElement.textContent = pin.streetAddress
+    var addressElement = item.querySelector('[data-custom="center-address"]');
+    if (addressElement) addressElement.textContent = pin.streetAddress;
 
-    var cityStateElement = item.querySelector('[data-custom="center-city-state"]')
+    var cityStateElement = item.querySelector('[data-custom="center-city-state"]');
     if (cityStateElement) {
-      cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ')
+      cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ');
     }
 
-    var phoneLink = item.querySelector('[data-centers="phone"]')
+    var phoneLink = item.querySelector('[data-centers="phone"]');
     if (phoneLink) {
       if (pin.phone) {
-        phoneLink.textContent = pin.phone
-        phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '')
+        phoneLink.textContent = pin.phone;
+        phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '');
       } else {
         if (phoneLink.parentElement) {
-          phoneLink.parentElement.remove()
+          phoneLink.parentElement.remove();
         }
       }
     }
 
-    var websiteLink = item.querySelector('[data-center="website"]')
+    var websiteLink = item.querySelector('[data-center="website"]');
     if (websiteLink) {
       if (pin.website) {
-        websiteLink.href = pin.website
+        websiteLink.href = pin.website;
       } else {
-        websiteLink.remove()
+        websiteLink.remove();
       }
     }
 
-    var directionsLink = item.querySelector('[data-centers="directions"]')
+    var directionsLink = item.querySelector('[data-centers="directions"]');
     if (directionsLink) {
       directionsLink.href =
-        'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving'
+        'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving';
     }
 
     return item
@@ -778,15 +779,15 @@ export default async function (component) {
 
   function createListItemClickHandler(pin) {
     return function () {
-      map.setCenter({ lat: pin.lat, lng: pin.lng })
-      map.setZoom(CLICK_ZOOM)
+      map.setCenter({ lat: pin.lat, lng: pin.lng });
+      map.setZoom(CLICK_ZOOM);
 
       // Find the matching marker on the map and open its popup
       for (var i = 0; i < currentMarkers.length; i++) {
-        var markerPosition = currentMarkers[i].getPosition()
+        var markerPosition = currentMarkers[i].getPosition();
         if (markerPosition.lat() === pin.lat && markerPosition.lng() === pin.lng) {
-          infoWindow.setContent(buildInfoWindowElement(pin))
-          infoWindow.open(map, currentMarkers[i])
+          infoWindow.setContent(buildInfoWindowElement(pin));
+          infoWindow.open(map, currentMarkers[i]);
           break
         }
       }
@@ -795,9 +796,9 @@ export default async function (component) {
 
   function createMarkerClickHandler(marker, pin) {
     return function () {
-      clearTimeout(closeTimeout)
-      infoWindow.setContent(buildInfoWindowElement(pin))
-      infoWindow.open(map, marker)
+      clearTimeout(closeTimeout);
+      infoWindow.setContent(buildInfoWindowElement(pin));
+      infoWindow.open(map, marker);
     }
   }
 
@@ -807,9 +808,9 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function renderCluster(clusterData) {
-    var count = clusterData.count
-    var position = clusterData.position
-    var icon = createClusterIcon(count)
+    var count = clusterData.count;
+    var position = clusterData.position;
+    var icon = createClusterIcon(count);
     return new google.maps.Marker({
       position: position,
       icon: icon,
@@ -825,72 +826,72 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function applyAllFilters() {
-    var filteredPins = allPins
-    console.log('[COE] Applying filters... (starting with', allPins.length, 'total pins)')
+    var filteredPins = allPins;
+    console.log('[COE] Applying filters... (starting with', allPins.length, 'total pins)');
 
     // ── Step 1: Filter by zip code ──────────────────────────────────────
-    var typedZip = zipInput.value.trim()
+    var typedZip = zipInput.value.trim();
 
     if (typedZip !== '') {
-      var zipMatches = []
+      var zipMatches = [];
       for (var i = 0; i < filteredPins.length; i++) {
         if (String(filteredPins[i].zip).startsWith(typedZip)) {
-          zipMatches.push(filteredPins[i])
+          zipMatches.push(filteredPins[i]);
         }
       }
-      filteredPins = zipMatches
-      console.log('[COE] Zip filter "' + typedZip + '":', filteredPins.length, 'matches')
+      filteredPins = zipMatches;
+      console.log('[COE] Zip filter "' + typedZip + '":', filteredPins.length, 'matches');
     }
 
     // ── Step 2: Filter by designation checkboxes ────────────────────────
     // In screening-only mode the checkboxes were removed, so skip this step.
     if (showOnlyScreening) {
-      console.log('[COE] Designation filter skipped (screening-only mode)')
+      console.log('[COE] Designation filter skipped (screening-only mode)');
     }
 
     // Find which checkboxes are currently checked
-    var selectedTypes = []
+    var selectedTypes = [];
     if (!showOnlyScreening && checkboxContainer) {
-      var checkedBoxes = checkboxContainer.querySelectorAll('input[name="designations"]:checked')
+      var checkedBoxes = checkboxContainer.querySelectorAll('input[name="designations"]:checked');
       for (var i = 0; i < checkedBoxes.length; i++) {
-        selectedTypes.push(checkedBoxes[i].value)
+        selectedTypes.push(checkedBoxes[i].value);
       }
       console.log(
         '[COE] Designation filter — checked types:',
         selectedTypes.length > 0 ? selectedTypes : '(none — showing all)'
-      )
+      );
     }
 
     // If no checkboxes are checked, show no results.
     // Otherwise filter to only the selected designation types.
     if (!showOnlyScreening && selectedTypes.length === 0) {
-      filteredPins = []
-      console.log('[COE] No designations selected — showing no results')
+      filteredPins = [];
+      console.log('[COE] No designations selected — showing no results');
     } else if (selectedTypes.length > 0) {
-      var designationMatches = []
+      var designationMatches = [];
       for (var i = 0; i < filteredPins.length; i++) {
-        var pin = filteredPins[i]
+        var pin = filteredPins[i];
 
         // Check if this pin has ANY of the selected designation types
-        var pinMatchesFilter = false
+        var pinMatchesFilter = false;
         for (var j = 0; j < selectedTypes.length; j++) {
           if (pin.designationTypes.indexOf(selectedTypes[j]) !== -1) {
-            pinMatchesFilter = true
+            pinMatchesFilter = true;
             break
           }
         }
 
         if (pinMatchesFilter) {
-          designationMatches.push(pin)
+          designationMatches.push(pin);
         }
       }
-      filteredPins = designationMatches
-      console.log('[COE] Designation filter result:', filteredPins.length, 'matches')
+      filteredPins = designationMatches;
+      console.log('[COE] Designation filter result:', filteredPins.length, 'matches');
     }
 
     // ── Step 3: Render the filtered results ─────────────────────────────
-    console.log('[COE] Final filtered count:', filteredPins.length, 'pins to render')
-    renderCenters(filteredPins)
+    console.log('[COE] Final filtered count:', filteredPins.length, 'pins to render');
+    renderCenters(filteredPins);
   }
 
   // --------------------------------------------------------------------------
@@ -898,26 +899,29 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   // Draw all centers on first load
-  console.log('[COE] Initial render with', allPins.length, 'total pins')
-  renderCenters(allPins)
+  console.log('[COE] Initial render with', allPins.length, 'total pins');
+  renderCenters(allPins);
 
   // Prevent Enter key from triggering form submission on the zip field
   zipInput.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
-      e.preventDefault()
+      e.preventDefault();
     }
-  })
+  });
 
   // Re-render whenever the user types in the zip field
-  zipInput.addEventListener('input', applyAllFilters)
+  zipInput.addEventListener('input', applyAllFilters);
 
   // (Checkbox listeners were already added in step 7 when we created them)
 
   // Clean up: remove the template element from the page so it doesn't show
-  var templateElement = document.querySelector('[data-centers="list-item"]')
+  var templateElement = document.querySelector('[data-centers="list-item"]');
   if (templateElement) {
-    templateElement.remove()
+    templateElement.remove();
   }
 
-  console.log('[COE] Component ready!')
+  console.log('[COE] Component ready!');
 }
+
+export { centersCoe as default };
+//# sourceMappingURL=centers-coe-Bn9GFf4C.js.map
