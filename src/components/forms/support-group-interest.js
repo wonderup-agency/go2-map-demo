@@ -84,13 +84,7 @@ export default function (component) {
         const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
         if (currentStepIndex === -1) return // Invalid index, abort
 
-        // Log for debugging
-        console.log('Next button pressed - Step index:', currentStepIndex)
-
         const stepInputsData = await serializeInputs(currentStepEl)
-
-        // Log serialized data for debugging
-        console.log('Next button - Serialized step data:', stepInputsData)
 
         const errors = []
 
@@ -150,7 +144,14 @@ export default function (component) {
             if (!response.ok) {
               throw new Error(`HTTP error! status: ${response.status}`)
             }
-            return response.json()
+            return response.text()
+          })
+          .then((text) => {
+            try {
+              return JSON.parse(text)
+            } catch {
+              return { id: text.trim() }
+            }
           })
           .then((data) => {
             if (idField) {
@@ -162,8 +163,6 @@ export default function (component) {
             const nextIndex = currentStepIndex + 1
             if (nextIndex < steps.length) {
               steps[nextIndex].classList.remove('hide')
-            } else {
-              console.log('no more steps')
             }
           })
           .catch((error) => {
@@ -189,14 +188,8 @@ export default function (component) {
         const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
         if (currentStepIndex === -1) return // Invalid index, abort
 
-        // Log for debugging
-        console.log('Submit button pressed - Step index:', currentStepIndex)
-
         // const submitInputsData = serializeInputs(currentStepEl)
         const submitInputsData = await serializeInputs(formInstance)
-
-        // Log serialized data for debugging
-        console.log('Submit button - Serialized submit data:', submitInputsData)
 
         const errors = []
 
@@ -279,9 +272,6 @@ export default function (component) {
 
         submitInputsData['id'] = idField.value
 
-        // Log final submit data for debugging
-        console.log('Final submit data (with modified message):', submitInputsData)
-
         fetch(webhookAddress, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -289,9 +279,16 @@ export default function (component) {
         })
           .then((response) => {
             if (!response.ok) throw new Error('Submission failed')
-            return response.json()
+            return response.text()
           })
-          .then((data) => {
+          .then((text) => {
+            try {
+              return JSON.parse(text)
+            } catch {
+              return text
+            }
+          })
+          .then(() => {
             hideForm(formEl)
             showSuccess(successEl)
           })
