@@ -13,7 +13,7 @@ import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markercluste
 // =============================================================================
 
 // Where to fetch the list of facilities from
-var API_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers'
+var API_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers?category=COE'
 
 // Where to fetch the list of available designation types from
 var DESIGNATIONS_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers/designations'
@@ -33,6 +33,9 @@ var CLICK_ZOOM = 14
 
 // How close pins need to be (in pixels) before they merge into a cluster
 var CLUSTER_RADIUS = 60
+
+// How many list items to show per page (pagination)
+var ITEMS_PER_PAGE = 2
 
 // -----------------------------------------------------------------------------
 // PIN IMAGES — each pin type has its own image, size, and anchor point.
@@ -315,6 +318,9 @@ export default async function (component) {
   // (In Webflow this is the <nav> inside the "Designations" dropdown)
   var checkboxContainer = component.querySelector('.map_filters-right-category-nav')
 
+  // The container where pagination controls will be rendered
+  var paginationContainer = component.querySelector('[data-centers="pagination"]')
+
   // Clone the list item template (we'll reuse this to create each list entry)
   var listItemTemplate = document.querySelector('[data-centers="list-item"]').cloneNode(true)
 
@@ -328,6 +334,7 @@ export default async function (component) {
     mapContainer: !!mapContainer,
     zipInput: !!zipInput,
     checkboxContainer: !!checkboxContainer,
+    paginationContainer: !!paginationContainer,
     listItemTemplate: !!listItemTemplate,
   })
   console.log('[COE] Mode:', showOnlyScreening ? 'SCREENING-ONLY' : 'NORMAL (all designations)')
@@ -374,6 +381,8 @@ export default async function (component) {
   var map = new google.maps.Map(mapContainer, {
     center: { lat: STARTING_LAT, lng: STARTING_LNG },
     zoom: STARTING_ZOOM,
+    mapTypeControl: false,
+    streetViewControl: false,
   })
 
   // --------------------------------------------------------------------------
@@ -438,7 +447,7 @@ export default async function (component) {
       throw new Error('Facilities HTTP ' + facilitiesResponse.status)
     }
     var facilitiesData = await facilitiesResponse.json()
-    allFacilities = facilitiesData.facilities || []
+    allFacilities = facilitiesData.centers || []
     console.log('[COE] Facilities fetched:', allFacilities.length, 'facilities')
 
     // Wait for the designations response
@@ -547,6 +556,9 @@ export default async function (component) {
   var currentMarkers = [] // Google Maps marker objects currently on the map
   var currentClusterer = null // the clustering engine that groups nearby markers
   var closeTimeout = null // timer for delayed info window close on mouseout
+  var isInitialRender = true
+  var currentPage = 1
+  var currentFilteredPins = []
 
   // --------------------------------------------------------------------------
   // 10. RENDER FUNCTION — draws pins on the map and items in the list
@@ -556,10 +568,10 @@ export default async function (component) {
   function renderCenters(pinsToShow) {
     console.log('[COE] Rendering', pinsToShow.length, 'centers')
 
-    // Clear the old list
-    centersList.innerHTML = ''
+    // Store filtered pins for pagination navigation
+    currentFilteredPins = pinsToShow
 
-    // Remove old clusters and markers from the map
+    // ── Clear previous markers ──────────────────────────────────────────
     if (currentClusterer) {
       currentClusterer.clearMarkers()
       currentClusterer = null
@@ -569,23 +581,88 @@ export default async function (component) {
     }
     currentMarkers = []
 
-    // If there's nothing to show, display a message and stop
+    // ── Render the list (paginated) ─────────────────────────────────────
+    renderListPage()
+
     if (pinsToShow.length === 0) {
-      centersList.innerHTML = '<p style="padding:1rem;color:#666;">No centers match your search.</p>'
       return
     }
 
-    // We'll use "bounds" to auto-zoom the map to fit all visible pins
+    // ── Create ALL map markers (not paginated) ──────────────────────────
     var bounds = new google.maps.LatLngBounds()
 
     for (var i = 0; i < pinsToShow.length; i++) {
       var pin = pinsToShow[i]
+      var position = { lat: pin.lat, lng: pin.lng }
 
-      // ── Create the list item ────────────────────────────────────────
+      var marker = new google.maps.Marker({
+        position: position,
+        icon: defaultIcon,
+        map: null,
+      })
+
+      marker.addListener('mouseover', createMarkerClickHandler(marker, pin))
+      marker.addListener('mouseout', function () {
+        closeTimeout = setTimeout(function () {
+          infoWindow.close()
+        }, 300)
+      })
+
+      currentMarkers.push(marker)
+      bounds.extend(position)
+    }
+
+    // ── Set up clustering ───────────────────────────────────────────────
+    currentClusterer = new MarkerClusterer({
+      map: map,
+      markers: currentMarkers,
+      renderer: { render: renderCluster },
+      algorithm: new SuperClusterAlgorithm({ radius: CLUSTER_RADIUS }),
+    })
+
+    // ── Adjust the map view to show all pins ────────────────────────────
+    if (isInitialRender) {
+      map.setCenter({ lat: STARTING_LAT, lng: STARTING_LNG })
+      map.setZoom(STARTING_ZOOM)
+      isInitialRender = false
+    } else if (currentMarkers.length > 1) {
+      map.fitBounds(bounds)
+    } else if (currentMarkers.length === 1) {
+      map.setCenter(currentMarkers[0].getPosition())
+      map.setZoom(CLICK_ZOOM)
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 10b. RENDER LIST PAGE (only the current page of items)
+  // --------------------------------------------------------------------------
+
+  function renderListPage() {
+    centersList.innerHTML = ''
+    if (paginationContainer) paginationContainer.innerHTML = ''
+
+    if (currentFilteredPins.length === 0) {
+      centersList.innerHTML = '<p style="padding:1rem;color:#666;">No centers match your search.</p>'
+      return
+    }
+
+    var totalPages = Math.ceil(currentFilteredPins.length / ITEMS_PER_PAGE)
+
+    // Clamp current page
+    if (currentPage > totalPages) currentPage = totalPages
+    if (currentPage < 1) currentPage = 1
+
+    var startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+    var endIndex = startIndex + ITEMS_PER_PAGE
+    if (endIndex > currentFilteredPins.length) endIndex = currentFilteredPins.length
+
+    // ── Render the page's list items ──────────────────────────────────────
+    for (var i = startIndex; i < endIndex; i++) {
+      var pin = currentFilteredPins[i]
+
       var listItem = listItemTemplate.cloneNode(true)
       listItem.dataset.id = pin.fid
 
-      // Set the list item icon to match the map pin image
       var iconElement = listItem.querySelector('[data-center="icon"]')
       if (iconElement) {
         iconElement.src = defaultIcon.url
@@ -649,48 +726,122 @@ export default async function (component) {
           'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving'
       }
 
-      // When a list item is clicked, zoom the map to that center and open its popup
       listItem.addEventListener('click', createListItemClickHandler(pin))
-
       centersList.appendChild(listItem)
-
-      // ── Create the map marker ───────────────────────────────────────
-      var position = { lat: pin.lat, lng: pin.lng }
-
-      var marker = new google.maps.Marker({
-        position: position,
-        icon: defaultIcon,
-        map: null, // the clusterer will add it to the map
-      })
-
-      // When a pin on the map is hovered, open its popup
-      marker.addListener('mouseover', createMarkerClickHandler(marker, pin))
-      marker.addListener('mouseout', function () {
-        closeTimeout = setTimeout(function () {
-          infoWindow.close()
-        }, 300)
-      })
-
-      currentMarkers.push(marker)
-      bounds.extend(position)
     }
 
-    // ── Set up clustering ───────────────────────────────────────────────
-    // This groups nearby pins into numbered bubbles when zoomed out
-    currentClusterer = new MarkerClusterer({
-      map: map,
-      markers: currentMarkers,
-      renderer: { render: renderCluster },
-      algorithm: new SuperClusterAlgorithm({ radius: CLUSTER_RADIUS }),
+    // ── Render pagination controls into dedicated container ───────────────
+    if (totalPages > 1 && paginationContainer) {
+      buildPaginationControls(paginationContainer, totalPages)
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // 10c. PAGINATION CONTROLS
+  // --------------------------------------------------------------------------
+
+  function buildPaginationControls(container, totalPages) {
+    container.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:4px;padding:12px 8px;'
+
+    // ── Prev arrow ──
+    var prevBtn = document.createElement('button')
+    prevBtn.textContent = '\u2039'
+    prevBtn.disabled = currentPage === 1
+    prevBtn.style.cssText = paginationButtonStyle(false, prevBtn.disabled)
+    prevBtn.addEventListener('click', function () {
+      if (currentPage > 1) {
+        currentPage--
+        renderListPage()
+        centersList.scrollTop = 0
+      }
     })
+    container.appendChild(prevBtn)
 
-    // ── Adjust the map view to show all pins ────────────────────────────
-    if (currentMarkers.length > 1) {
-      map.fitBounds(bounds)
-    } else if (currentMarkers.length === 1) {
-      map.setCenter(currentMarkers[0].getPosition())
-      map.setZoom(CLICK_ZOOM)
+    // ── Page number buttons (max 3: prev sibling, current, next sibling) ──
+    var pages = getPageNumbers(currentPage, totalPages, 3)
+    for (var i = 0; i < pages.length; i++) {
+      var page = pages[i]
+      if (page === '...') {
+        var ellipsis = document.createElement('span')
+        ellipsis.textContent = '...'
+        ellipsis.style.cssText = 'padding:0 4px;color:#666;font-size:14px;user-select:none;'
+        container.appendChild(ellipsis)
+      } else {
+        var pageBtn = document.createElement('button')
+        pageBtn.textContent = page
+        var isActive = page === currentPage
+        pageBtn.style.cssText = paginationButtonStyle(isActive, false)
+        pageBtn.addEventListener('click', createPageClickHandler(page))
+        container.appendChild(pageBtn)
+      }
     }
+
+    // ── Next arrow ──
+    var nextBtn = document.createElement('button')
+    nextBtn.textContent = '\u203A'
+    nextBtn.disabled = currentPage === totalPages
+    nextBtn.style.cssText = paginationButtonStyle(false, nextBtn.disabled)
+    nextBtn.addEventListener('click', function () {
+      if (currentPage < totalPages) {
+        currentPage++
+        renderListPage()
+        centersList.scrollTop = 0
+      }
+    })
+    container.appendChild(nextBtn)
+  }
+
+  function createPageClickHandler(page) {
+    return function () {
+      currentPage = page
+      renderListPage()
+      centersList.scrollTop = 0
+    }
+  }
+
+  function paginationButtonStyle(isActive, isDisabled) {
+    var base =
+      'min-width:32px;height:32px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;'
+    if (isActive) return base + 'background:#2c3495;color:#fff;border-color:#2c3495;font-weight:700;'
+    if (isDisabled) return base + 'background:#f5f5f5;color:#ccc;cursor:default;'
+    return base + 'background:#fff;color:#333;'
+  }
+
+  function getPageNumbers(current, total, maxButtons) {
+    if (total <= maxButtons) {
+      var arr = []
+      for (var i = 1; i <= total; i++) arr.push(i)
+      return arr
+    }
+
+    var pages = []
+    var half = Math.floor(maxButtons / 2)
+    var start = current - half
+    var end = current + half
+
+    if (start < 1) {
+      end += 1 - start
+      start = 1
+    }
+    if (end > total) {
+      start -= end - total
+      end = total
+    }
+    if (start < 1) start = 1
+
+    if (start > 1) {
+      pages.push(1)
+      if (start > 2) pages.push('...')
+    }
+    for (var i = start; i <= end; i++) {
+      pages.push(i)
+    }
+    if (end < total) {
+      if (end < total - 1) pages.push('...')
+      pages.push(total)
+    }
+
+    return pages
   }
 
   // --------------------------------------------------------------------------
@@ -825,6 +976,7 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function applyAllFilters() {
+    currentPage = 1
     var filteredPins = allPins
     console.log('[COE] Applying filters... (starting with', allPins.length, 'total pins)')
 
@@ -897,6 +1049,13 @@ export default async function (component) {
   // 14. START EVERYTHING
   // --------------------------------------------------------------------------
 
+  // Clean up: remove the template element from the page BEFORE initial render
+  // so it doesn't get confused with rendered list items
+  var templateElement = document.querySelector('[data-centers="list-item"]')
+  if (templateElement) {
+    templateElement.remove()
+  }
+
   // Draw all centers on first load
   console.log('[COE] Initial render with', allPins.length, 'total pins')
   renderCenters(allPins)
@@ -912,12 +1071,6 @@ export default async function (component) {
   zipInput.addEventListener('input', applyAllFilters)
 
   // (Checkbox listeners were already added in step 7 when we created them)
-
-  // Clean up: remove the template element from the page so it doesn't show
-  var templateElement = document.querySelector('[data-centers="list-item"]')
-  if (templateElement) {
-    templateElement.remove()
-  }
 
   console.log('[COE] Component ready!')
 }
