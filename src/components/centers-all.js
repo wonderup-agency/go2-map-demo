@@ -74,6 +74,27 @@ var CATEGORY_LABELS = {
 // HELPER FUNCTIONS
 // =============================================================================
 
+var GEOCODE_URL = 'https://go2-worker.nahuel-eba.workers.dev/geocode'
+var NEARBY_RADIUS_MILES = 50
+var MAX_SEARCH_ZOOM = 13
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  var R = 3959
+  var dLat = ((lat2 - lat1) * Math.PI) / 180
+  var dLng = ((lng2 - lng1) * Math.PI) / 180
+  var a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+async function geocodeZip(zip) {
+  var response = await fetch(GEOCODE_URL + '?zip=' + encodeURIComponent(zip))
+  if (!response.ok) return null
+  return response.json()
+}
+
 function createGoogleMapsIcon(pinConfig) {
   return {
     url: pinConfig.imageUrl,
@@ -322,6 +343,13 @@ export default async function (component) {
   var isInitialRender = true
   var currentPage = 1
   var currentFilteredPins = []
+  var searchLocation = null
+  var searchLocationMarker = null
+  var searchNearbyCount = 0
+  var debounceTimer = null
+  var searchMessage = component.querySelector('[data-centers="search-message"]')
+  console.log('[ALL] searchMessage element found:', !!searchMessage, searchMessage)
+  if (searchMessage) searchMessage.style.display = 'none'
 
   // --------------------------------------------------------------------------
   // 9. RENDER FUNCTION
@@ -342,9 +370,42 @@ export default async function (component) {
       currentMarkers[i].setMap(null)
     }
     currentMarkers = []
+    if (searchLocationMarker) {
+      searchLocationMarker.setMap(null)
+      searchLocationMarker = null
+    }
 
     // ── Render the list (paginated) ─────────────────────────────────────
     renderListPage()
+
+    // ── Update search message ───────────────────────────────────────────
+    console.log(
+      '[ALL] Search message update — searchMessage:',
+      !!searchMessage,
+      'searchLocation:',
+      searchLocation,
+      'pinsToShow.length:',
+      pinsToShow.length,
+      'searchNearbyCount:',
+      searchNearbyCount
+    )
+    if (searchMessage) {
+      if (searchLocation && pinsToShow.length > 0) {
+        var locationLabel = searchLocation.city + ', ' + searchLocation.state
+        if (searchNearbyCount > 0) {
+          searchMessage.textContent =
+            pinsToShow.length + ' center' + (pinsToShow.length !== 1 ? 's' : '') + ' near ' + locationLabel
+        } else {
+          var miles = Math.round(pinsToShow[0]._distance)
+          searchMessage.textContent = 'Nearest center: ' + miles + ' miles from ' + locationLabel
+        }
+        console.log('[ALL] Search message SHOWN:', searchMessage.textContent)
+        searchMessage.style.display = ''
+      } else {
+        console.log('[ALL] Search message HIDDEN (no searchLocation or no pins)')
+        searchMessage.style.display = 'none'
+      }
+    }
 
     if (pinsToShow.length === 0) {
       return
@@ -383,11 +444,43 @@ export default async function (component) {
       algorithm: new SuperClusterAlgorithm({ radius: CLUSTER_RADIUS }),
     })
 
+    // ── Show or hide the search location marker ─────────────────────────
+    if (searchLocationMarker) {
+      searchLocationMarker.setMap(null)
+      searchLocationMarker = null
+    }
+
+    if (searchLocation) {
+      searchLocationMarker = new google.maps.Marker({
+        position: { lat: searchLocation.lat, lng: searchLocation.lng },
+        map: map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#4285F4',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+        },
+        zIndex: 9999,
+        title: 'Your search location',
+      })
+
+      bounds.extend({ lat: searchLocation.lat, lng: searchLocation.lng })
+    }
+
     // ── Adjust the map view to show all pins ────────────────────────────
     if (isInitialRender) {
       map.setCenter({ lat: STARTING_LAT, lng: STARTING_LNG })
       map.setZoom(STARTING_ZOOM)
       isInitialRender = false
+    } else if (searchLocation) {
+      map.fitBounds(bounds, { padding: 50 })
+      google.maps.event.addListenerOnce(map, 'bounds_changed', function () {
+        if (map.getZoom() > MAX_SEARCH_ZOOM) {
+          map.setZoom(MAX_SEARCH_ZOOM)
+        }
+      })
     } else if (currentMarkers.length > 1) {
       map.fitBounds(bounds)
     } else if (currentMarkers.length === 1) {
@@ -724,26 +817,14 @@ export default async function (component) {
   //     Handles both zip code filter AND category dropdown filter.
   // --------------------------------------------------------------------------
 
-  function applyAllFilters() {
+  async function applyAllFilters() {
     currentPage = 1
     var filteredPins = allPins
     console.log('[ALL] Applying filters... (starting with', allPins.length, 'total pins)')
 
-    // ── Step 1: Filter by zip code ──────────────────────────────────────
-    var typedZip = zipInput.value.trim()
-
-    if (typedZip !== '') {
-      var zipMatches = []
-      for (var i = 0; i < filteredPins.length; i++) {
-        if (String(filteredPins[i].zip).startsWith(typedZip)) {
-          zipMatches.push(filteredPins[i])
-        }
-      }
-      filteredPins = zipMatches
-      console.log('[ALL] Zip filter "' + typedZip + '":', filteredPins.length, 'matches')
-    }
-
-    // ── Step 2: Filter by category dropdown ─────────────────────────────
+    // ── Step 1: Filter by category dropdown ─────────────────────────────
+    // Applied BEFORE zip/density search so the density-adaptive logic
+    // only considers facilities of the selected category.
     if (categorySelect) {
       var selectedValue = categorySelect.value
       var apiCategory = CATEGORY_MAP[selectedValue]
@@ -764,6 +845,53 @@ export default async function (component) {
       } else {
         console.log('[ALL] Category filter: showing all')
       }
+    }
+
+    // ── Step 2: Filter by zip code ──────────────────────────────────────
+    var typedZip = zipInput.value.trim()
+
+    console.log('[ALL] typedZip:', JSON.stringify(typedZip), 'length:', typedZip.length)
+
+    if (typedZip.length === 5 && /^\d{5}$/.test(typedZip)) {
+      // ── Full zip: distance-based search ──
+      console.log('[ALL] Calling geocodeZip for:', typedZip)
+      var geo = await geocodeZip(typedZip)
+      console.log('[ALL] Geocode response:', geo)
+      if (geo) {
+        searchLocation = { lat: geo.lat, lng: geo.lng, city: geo.city, state: geo.state }
+
+        for (var i = 0; i < filteredPins.length; i++) {
+          filteredPins[i]._distance = haversineDistance(geo.lat, geo.lng, filteredPins[i].lat, filteredPins[i].lng)
+        }
+
+        filteredPins = filteredPins.slice().sort(function (a, b) {
+          return a._distance - b._distance
+        })
+
+        var nearby = filteredPins.filter(function (p) {
+          return p._distance <= NEARBY_RADIUS_MILES
+        })
+        searchNearbyCount = nearby.length
+        filteredPins = nearby.length > 0 ? nearby : [filteredPins[0]]
+        console.log('[ALL] Distance search from', geo.city + ', ' + geo.state + ':', filteredPins.length, 'results')
+      } else {
+        searchLocation = null
+        filteredPins = []
+        console.log('[ALL] Zip code not found:', typedZip)
+      }
+    } else if (typedZip !== '') {
+      // ── Partial zip: keep current prefix match behavior ──
+      searchLocation = null
+      var zipMatches = []
+      for (var i = 0; i < filteredPins.length; i++) {
+        if (String(filteredPins[i].zip).startsWith(typedZip)) {
+          zipMatches.push(filteredPins[i])
+        }
+      }
+      filteredPins = zipMatches
+      console.log('[ALL] Zip filter "' + typedZip + '":', filteredPins.length, 'matches')
+    } else {
+      searchLocation = null
     }
 
     // ── Step 3: Render the filtered results ─────────────────────────────
@@ -792,8 +920,28 @@ export default async function (component) {
     }
   })
 
-  // Re-render whenever the user types in the zip field
-  zipInput.addEventListener('input', applyAllFilters)
+  // Re-render whenever the user types in the zip field (debounced for 5-digit zips)
+  zipInput.addEventListener('input', function () {
+    clearTimeout(debounceTimer)
+    var val = zipInput.value.trim()
+    console.log(
+      '[ALL] Zip input changed:',
+      JSON.stringify(val),
+      'length:',
+      val.length,
+      'is5digit:',
+      /^\d{5}$/.test(val)
+    )
+
+    if (val.length === 5 && /^\d{5}$/.test(val)) {
+      console.log('[ALL] Debouncing geocode call for zip:', val)
+      debounceTimer = setTimeout(function () {
+        applyAllFilters()
+      }, 300)
+    } else {
+      applyAllFilters()
+    }
+  })
 
   // Re-render whenever the category dropdown changes
   if (categorySelect) {

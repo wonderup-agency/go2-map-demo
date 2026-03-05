@@ -176,6 +176,7 @@ The component root element must have `data-component="centers-all"`. Required ch
 | `[data-centers="pagination"]`        | Container  | Pagination controls (prev/next arrows + page buttons) |
 | `[data-custom="centers-zip-field"]`  | Input      | ZIP code filter field                                 |
 | `[data-centers="categories-select"]` | Select     | Category dropdown (All / GO2 / NCI / COC)             |
+| `[data-centers="search-message"]`    | Element    | Contextual message shown during zip search            |
 | `[data-centers="list-item"]`         | Button/Div | Template element (cloned, then removed from DOM)      |
 
 List item template inner elements:
@@ -208,24 +209,26 @@ data.pins[]         ──→  turnFacilitiesIntoPins()  ──→  allPins[]
                               │                      applyAllFilters()
                               │                        (resets page to 1)
                               │                            │
-                              │              ┌─────────────┼─────────────┐
-                              │              ▼             ▼             ▼
-                              │         ZIP filter   Category filter  renderCenters()
-                              │         (startsWith)  (CATEGORY_MAP     │
-                              │                        lookup)     ┌────┴────┐
-                              │                                    ▼         ▼
-                              │                              ALL pins   renderListPage()
-                              │                              on map     (current page only)
-                              │                                              │
-                              │                                              ▼
-                              │                                    Pagination controls
-                              │                                    in [data-centers=
-                              │                                     "pagination"]
+                              │              ┌─────────────┼──────────────────┐
+                              │              ▼             ▼                  ▼
+                              │       Category filter  ZIP / density     renderCenters()
+                              │       (CATEGORY_MAP    search               │
+                              │        lookup)         (see below)     ┌────┴────┐
+                              │                                        ▼         ▼
+                              │                                  ALL pins   renderListPage()
+                              │                                  on map     (current page only)
+                              │                                                  │
+                              │                                                  ▼
+                              │                                        Pagination controls
+                              │                                        in [data-centers=
+                              │                                         "pagination"]
                               ▼
                          Pin object shape:
                          { name, lat, lng, address, city, state,
                            zip, phone, website, imageUrl, category }
 ```
+
+**Important:** The category filter runs _before_ the zip/density search so that the density-adaptive logic only considers facilities of the selected category.
 
 ### Category Select Mapping
 
@@ -268,6 +271,7 @@ Same base elements as `centers-all.js`, plus:
 | ------------------------------------ | ----------------- | ----------------------------------------------------- |
 | `[data-centers="pagination"]`        | Container         | Pagination controls (prev/next arrows + page buttons) |
 | `.map_filters-right-category-nav`    | Nav/Container     | Holds dynamically generated designation checkboxes    |
+| `[data-centers="search-message"]`    | Element           | Contextual message shown during zip search            |
 | `data-show-only-screening` attribute | On component root | Set to `"true"` to lock to screening-only mode        |
 
 ### Data Flow
@@ -288,18 +292,20 @@ turnFacilitiesIntoPins()              Populate checkboxes
                                                                │
                                                     ┌──────────┼──────────┐
                                                     ▼          ▼          ▼
-                                               ZIP filter  Designation  renderCenters()
-                                                           checkbox        │
-                                                           filter     ┌────┴────┐
-                                                                      ▼         ▼
-                                                                ALL pins   renderListPage()
-                                                                on map     (current page only)
-                                                                                │
-                                                                                ▼
-                                                                      Pagination controls
-                                                                      in [data-centers=
-                                                                       "pagination"]
+                                              Designation  ZIP / density  renderCenters()
+                                              checkbox     search            │
+                                              filter       (see below)  ┌────┴────┐
+                                                                        ▼         ▼
+                                                                  ALL pins   renderListPage()
+                                                                  on map     (current page only)
+                                                                                  │
+                                                                                  ▼
+                                                                        Pagination controls
+                                                                        in [data-centers=
+                                                                         "pagination"]
 ```
+
+**Important:** The designation filter runs _before_ the zip/density search so that the density-adaptive logic only considers facilities of the selected designation types.
 
 ### The `turnFacilitiesIntoPins()` Function (COE-specific)
 
@@ -421,18 +427,65 @@ Both components use an `applyAllFilters()` function that:
 
 1. Resets `currentPage` to `1`
 2. Starts with all pins
-3. Applies the zip filter (prefix match on the `zip` field)
-4. Applies the type-specific filter (category select or designation checkboxes)
+3. Applies the **type-specific filter first** (category select or designation checkboxes) — this ensures the density-adaptive search only considers facilities of the selected type
+4. Applies the **zip/density search** (see below)
 5. Calls `renderCenters()` with the filtered result
 
 `renderCenters()` rebuilds all map markers from the full filtered set, then calls `renderListPage()` which only renders the current page slice of list items.
+
+### Density-Adaptive Zip Search
+
+When a user enters a full 5-digit zip code, the component performs a **density-adaptive search** instead of a simple prefix match:
+
+1. The zip is **geocoded** via the `/geocode` endpoint to get lat/lng coordinates and a city/state label
+2. **Haversine distances** are calculated from the search location to every (already type-filtered) facility
+3. Facilities are sorted by distance
+4. **Nearby facilities** within `NEARBY_RADIUS_MILES` (default 50) are collected
+5. If there are nearby facilities, **all of them** are shown. If there are none, only the **single closest** facility is shown
+6. The map uses `fitBounds()` to auto-zoom to include the user's search location and all selected facilities, capped at `MAX_SEARCH_ZOOM` (13) to prevent over-zoom
+
+For **partial zip codes** (less than 5 digits), the old prefix-match behavior is used instead.
+
+#### Geocode Endpoint
+
+`GET /geocode?zip=<zip>` returns `{ lat, lng, city, state }` for the given zip code.
+
+#### Search Location Marker
+
+When a zip is geocoded, a **blue circle marker** (Google Maps `SymbolPath.CIRCLE`, scale 10, `#4285F4` fill, white stroke) is placed at the search location with `zIndex: 9999` so it always renders on top of facility pins.
+
+#### Search Message
+
+Both components look for a `[data-centers="search-message"]` element. When a zip search is active:
+
+- **Nearby results:** `"5 centers near San Francisco, CA"`
+- **No nearby results (fallback to closest):** `"Nearest center: 847 miles from Bismarck, ND"`
+- **No search active:** The message element is hidden
+
+#### Configuration
+
+| Variable              | Default       | Purpose                                |
+| --------------------- | ------------- | -------------------------------------- |
+| `GEOCODE_URL`         | `.../geocode` | Geocoding endpoint                     |
+| `NEARBY_RADIUS_MILES` | `50`          | Radius (miles) for "nearby" threshold  |
+| `MAX_SEARCH_ZOOM`     | `13`          | Maximum zoom level after `fitBounds()` |
+
+#### State Variables
+
+| Variable               | Purpose                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `searchLocation`       | `{ lat, lng, city, state }` from geocode, or `null`        |
+| `searchLocationMarker` | Google Maps Marker for the blue circle, or `null`          |
+| `searchNearbyCount`    | Number of facilities within the radius (0 = fallback mode) |
+| `debounceTimer`        | Timer ID for debouncing geocode calls (300ms)              |
 
 ### Initial Render vs Filter Render
 
 Both components use an `isInitialRender` flag to control map viewport behavior:
 
 - **Initial render**: The map uses the fixed `STARTING_LAT`/`STARTING_LNG` center and `STARTING_ZOOM` level (defaults to lat 37.5, lng -95.7, zoom 4 — showing the continental US). This prevents `fitBounds()` from zooming out too far to include outlier locations like Hawaii.
-- **Subsequent renders** (triggered by filters): The map uses `fitBounds()` to auto-zoom to fit all visible pins, or centers on a single pin at `CLICK_ZOOM` level.
+- **Zip search render**: The map uses `fitBounds()` with padding to fit the search location + all selected facilities, capped at `MAX_SEARCH_ZOOM` (13).
+- **Non-zip filter render**: The map uses `fitBounds()` to auto-zoom to fit all visible pins, or centers on a single pin at `CLICK_ZOOM` level.
 
 ---
 
@@ -440,17 +493,20 @@ Both components use an `isInitialRender` flag to control map viewport behavior:
 
 All configurable values are defined as `var` constants at the top of each file:
 
-| Variable              | Default                    | Purpose                               |
-| --------------------- | -------------------------- | ------------------------------------- |
-| `API_URL`             | See above                  | Fetch endpoint                        |
-| `DESIGNATIONS_URL`    | `.../centers/designations` | COE only — designation types endpoint |
-| `GOOGLE_MAPS_API_KEY` | `AIzaSyDz...`              | Google Maps JS API key                |
-| `STARTING_LAT`        | `37.5`                     | Initial map center latitude           |
-| `STARTING_LNG`        | `-95.7`                    | Initial map center longitude          |
-| `STARTING_ZOOM`       | `4`                        | Initial zoom level                    |
-| `CLICK_ZOOM`          | `14`                       | Zoom level when clicking a center     |
-| `CLUSTER_RADIUS`      | `60`                       | Pixel radius for marker clustering    |
-| `ITEMS_PER_PAGE`      | `2`                        | Number of list items shown per page   |
+| Variable              | Default                    | Purpose                                    |
+| --------------------- | -------------------------- | ------------------------------------------ |
+| `API_URL`             | See above                  | Fetch endpoint                             |
+| `DESIGNATIONS_URL`    | `.../centers/designations` | COE only — designation types endpoint      |
+| `GOOGLE_MAPS_API_KEY` | `AIzaSyDz...`              | Google Maps JS API key                     |
+| `STARTING_LAT`        | `37.5`                     | Initial map center latitude                |
+| `STARTING_LNG`        | `-95.7`                    | Initial map center longitude               |
+| `STARTING_ZOOM`       | `4`                        | Initial zoom level                         |
+| `CLICK_ZOOM`          | `14`                       | Zoom level when clicking a center          |
+| `CLUSTER_RADIUS`      | `60`                       | Pixel radius for marker clustering         |
+| `ITEMS_PER_PAGE`      | `2`                        | Number of list items shown per page        |
+| `GEOCODE_URL`         | `.../geocode`              | Geocoding endpoint for zip search          |
+| `NEARBY_RADIUS_MILES` | `50`                       | Radius (miles) for density-adaptive search |
+| `MAX_SEARCH_ZOOM`     | `13`                       | Maximum zoom after fitBounds on search     |
 
 ---
 
@@ -491,11 +547,14 @@ Update `ITEMS_PER_PAGE` at the top of the file. Both components use the same var
 
 Both components log extensively with `[ALL]` or `[COE]` prefixes. Key log points:
 
-- DOM elements found (boolean check, includes `paginationContainer`)
+- DOM elements found (boolean check, includes `paginationContainer`, `searchMessage`)
 - Google Maps load success/failure
 - Facility count after fetch
 - Pin count after transformation
-- Filter application (zip matches, category/designation matches)
+- Filter application (category/designation matches, zip matches)
+- Geocode request and response
+- Distance search results (nearby count, fallback to closest)
+- Search message text shown/hidden
 - Final render count
 
 Open the browser console and filter by `[ALL]` or `[COE]` to trace the full lifecycle.
