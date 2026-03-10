@@ -1,83 +1,83 @@
 /**
  * @param {HTMLElement} component
  */
-export default async function (component) {
+async function breadcrumbs (component) {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
 
-  const root = component instanceof HTMLElement ? component : document
-  const SELECTOR = "[data-component='breadcrums'],[data-component='breadcrumbs']"
+  const root = component instanceof HTMLElement ? component : document;
+  const SELECTOR = "[data-component='breadcrums'],[data-component='breadcrumbs']";
 
-  let nodes = root.querySelectorAll(SELECTOR)
+  let nodes = root.querySelectorAll(SELECTOR);
   if (!nodes.length && root !== document) {
-    const globalNodes = document.querySelectorAll(SELECTOR)
+    const globalNodes = document.querySelectorAll(SELECTOR);
     if (!globalNodes.length) return
-    nodes = globalNodes
+    nodes = globalNodes;
   }
 
   nodes.forEach((container) => {
-    const rootLabel = container.dataset.rootLabel || 'Home'
-    const rootUrl = container.dataset.rootUrl || '/'
+    const rootLabel = container.dataset.rootLabel || 'Home';
+    const rootUrl = container.dataset.rootUrl || '/';
 
     const linkClass =
       container.dataset.linkClass ||
       container.querySelector('.breadcrumb-link')?.className ||
-      'breadcrumb-link w-inline-block'
+      'breadcrumb-link w-inline-block';
 
-    const sepClass = container.dataset.sepClass || container.querySelector('.g-paragraph')?.className || 'g-paragraph'
+    const sepClass = container.dataset.sepClass || container.querySelector('.g-paragraph')?.className || 'g-paragraph';
 
-    const leadingAttr = (container.dataset.leadingSeparator || 'true').toLowerCase().trim()
-    const leadingSeparator = leadingAttr === 'true' || leadingAttr === '1' || leadingAttr === ''
+    const leadingAttr = (container.dataset.leadingSeparator || 'true').toLowerCase().trim();
+    const leadingSeparator = leadingAttr === 'true' || leadingAttr === '1' || leadingAttr === '';
 
-    const custom = (container.dataset.breadcrumbCustom || container.dataset.breadcrumCustom || '').trim()
+    const custom = (container.dataset.breadcrumbCustom || container.dataset.breadcrumCustom || '').trim();
 
-    container.innerHTML = ''
+    container.innerHTML = '';
 
-    const rawPath = window.location.pathname.split('?')[0].split('#')[0]
+    const rawPath = window.location.pathname.split('?')[0].split('#')[0];
     const segments = rawPath
       .replace(/\/+$/, '')
       .replace(/^\/+/, '')
       .split('/')
       .filter(Boolean)
       .map((s) => s.replace(/index\.html?$/i, ''))
-      .filter(Boolean)
+      .filter(Boolean);
 
     if (!segments.length) return
 
-    const items = []
+    const items = [];
 
-    items.push({ label: rootLabel, href: rootUrl })
+    items.push({ label: rootLabel, href: rootUrl });
 
     segments.forEach((seg, i) => {
-      const isLastSeg = i === segments.length - 1
-      const href = isLastSeg ? null : `/${segments.slice(0, i + 1).join('/')}`
-      const label = toTitle(seg)
-      items.push({ label, href })
-    })
+      const isLastSeg = i === segments.length - 1;
+      const href = isLastSeg ? null : `/${segments.slice(0, i + 1).join('/')}`;
+      const label = toTitle(seg);
+      items.push({ label, href });
+    });
 
     if (custom && items.length) {
-      items[items.length - 1].label = custom
+      items[items.length - 1].label = custom;
     }
 
-    renderItems(container, items, linkClass, sepClass, leadingSeparator)
-  })
+    renderItems(container, items, linkClass, sepClass, leadingSeparator);
+  });
 
   function renderItems(container, items, linkClass, sepClass, leadingSeparator) {
     if (!items.length) return
-    if (leadingSeparator) appendSeparator(container, sepClass)
+    if (leadingSeparator) appendSeparator(container, sepClass);
     items.forEach((item, j) => {
-      if (j > 0) appendSeparator(container, sepClass)
-      const isFirst = j === 0
-      const isLast = j === items.length - 1
-      const classes = `${linkClass}${isFirst ? ' is-first' : ''}${isLast ? ' is-active' : ''}`
-      appendLink(container, item.label, item.href, classes)
-    })
+      if (j > 0) appendSeparator(container, sepClass);
+      const isFirst = j === 0;
+      const isLast = j === items.length - 1;
+      const classes = `${linkClass}${isFirst ? ' is-first' : ''}${isLast ? ' is-active' : ''}`;
+      appendLink(container, item.label, item.href, classes);
+    });
   }
 
   function toTitle(slug) {
     const clean = decodeURIComponent(slug)
       .replace(/\.html?$/i, '')
       .replace(/[-_]+/g, ' ')
-      .trim()
+      .trim();
     return clean
       .split(/\s+/)
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -85,21 +85,21 @@ export default async function (component) {
   }
 
   function appendSeparator(container, sepClass) {
-    const p = document.createElement('p')
-    p.className = sepClass
-    p.innerHTML = '/<br>'
-    container.appendChild(p)
+    const p = document.createElement('p');
+    p.className = sepClass;
+    p.innerHTML = '/<br>';
+    container.appendChild(p);
   }
 
   function appendLink(container, text, href, classes) {
-    const a = document.createElement('a')
-    a.className = classes
-    a.classList.add('w-inline-block')
-    if (href) a.href = href
-    const div = document.createElement('div')
-    div.textContent = text
-    a.appendChild(div)
-    container.appendChild(a)
+    const a = document.createElement('a');
+    a.className = classes;
+    a.classList.add('w-inline-block');
+    if (href) a.href = href;
+    const div = document.createElement('div');
+    div.textContent = text;
+    a.appendChild(div);
+    container.appendChild(a);
   }
 
   /*
@@ -239,3 +239,6 @@ export default async function (component) {
 
 */
 }
+
+export { breadcrumbs as default };
+//# sourceMappingURL=breadcrumbs-Dcqv2_R7.js.map
