@@ -10,10 +10,10 @@ export default async function (component) {
   am5.addLicense('AM5C-5405-1606-1671-1138')
   am5.ready(function () {
     document.querySelectorAll('[data-graphic-type="bars"]').forEach((el) => {
-      // Responsive height: 20rem only on mobile
+      // Responsive height
       const applyResponsiveHeight = () => {
         if (window.innerWidth < 768) {
-          el.style.height = '20rem'
+          el.style.height = '28rem'
         } else {
           el.style.height = '' // use default / CSS height
         }
@@ -25,10 +25,11 @@ export default async function (component) {
       const root = am5.Root.new(el)
       root.setThemes([am5themes_Animated.new(root)])
 
-      const BACKGROUND = am5.color(el.dataset.graphicBackgroundColor || '#1B2155')
-      const BAR_COLOR = am5.color(el.dataset.graphicBarColor || '#B9DDE6')
-      const TEXT_COLOR = am5.color(el.dataset.graphicTextColor || '#FFFFFF')
-      const BADGE_BG = am5.color(el.dataset.graphicBadgeBg || '#2C3495')
+      const isDark = (el.dataset.graphicBarTheme || 'dark') === 'dark'
+
+      const BACKGROUND = am5.color(isDark ? '#1B2155' : '#FFFFFF')
+      const BAR_COLOR = am5.color(isDark ? '#B9DDE6' : '#B9DDE6')
+      const TEXT_COLOR = am5.color(isDark ? '#FFFFFF' : '#1B2155')
 
       const data = []
       for (let i = 1; i <= 4; i++) {
@@ -44,7 +45,7 @@ export default async function (component) {
           panY: false,
           wheelX: 'none',
           wheelY: 'none',
-          paddingTop: 60,
+          paddingTop: 80,
           paddingBottom: 32,
           paddingLeft: 0,
           paddingRight: 0,
@@ -52,6 +53,7 @@ export default async function (component) {
       )
 
       chart.set('background', am5.Rectangle.new(root, { fill: BACKGROUND }))
+      chart.plotContainer.set('background', am5.Rectangle.new(root, { fill: am5.color(0x000000), fillOpacity: 0 }))
 
       // X Axis
       const xRenderer = am5xy.AxisRendererX.new(root, {
@@ -68,35 +70,22 @@ export default async function (component) {
       )
       xAxis.data.setAll(data)
 
-      xAxis.get('renderer').labels.template.setAll({
-        fill: TEXT_COLOR,
-        fontSize: 12,
-        fontWeight: '400',
-        centerY: am5.p100,
-        paddingTop: 10,
-        dy: 50,
-        maxWidth: 120,
-        oversizedBehavior: 'wrap',
-        textAlign: 'center',
-      })
+      xAxis.get('renderer').labels.template.setAll({ visible: false })
+      xAxis.get('renderer').grid.template.setAll({ visible: false })
+      xAxis.get('renderer').setAll({ strokeOpacity: 0 })
 
       // Y Axis
       const yRenderer = am5xy.AxisRendererY.new(root, { opposite: false })
       const yAxis = chart.yAxes.push(
         am5xy.ValueAxis.new(root, {
           renderer: yRenderer,
+          extraMax: 0.45,
         })
       )
 
-      yAxis.get('renderer').labels.template.setAll({
-        fill: TEXT_COLOR,
-        fontSize: 12,
-        fontWeight: '400',
-      })
-      yAxis.get('renderer').grid.template.setAll({
-        stroke: am5.color('#FFFFFF'),
-        strokeOpacity: 0.1,
-      })
+      yAxis.get('renderer').labels.template.setAll({ visible: false })
+      yAxis.get('renderer').grid.template.setAll({ visible: false })
+      yAxis.get('renderer').setAll({ strokeOpacity: 0 })
 
       // Bars
       const series = chart.series.push(
@@ -114,49 +103,50 @@ export default async function (component) {
         width: am5.percent(75),
         cornerRadiusTL: 0,
         cornerRadiusTR: 0,
-        tooltipText: '{category}: {valueY}%',
+        tooltipText: '',
       })
 
-      // Badges
-      series.events.on('datavalidated', () => {
-        series.dataItems.forEach((dataItem) => {
-          const column = dataItem.get('graphics')
-          if (!column) return
+      const isMobile = window.innerWidth < 768
+      const pctFontSize = isMobile ? 22 : 30
+      const catFontSize = isMobile ? 14 : 14
+      const pctDy = isMobile ? -40 : -36
+      const catDy = isMobile ? -10 : -8
+      const catMaxWidth = isMobile ? 160 : 160
 
-          const bounds = column.globalBounds()
-          const centerX = bounds.left + bounds.width / 2
-          const topY = bounds.top
+      // Category name bullet above bars
+      series.bullets.push(function () {
+        return am5.Bullet.new(root, {
+          locationY: 1,
+          sprite: am5.Label.new(root, {
+            text: '{categoryX}',
+            populateText: true,
+            fill: TEXT_COLOR,
+            fontSize: catFontSize,
+            fontWeight: '400',
+            centerX: am5.p50,
+            centerY: am5.p100,
+            dy: catDy,
+            maxWidth: catMaxWidth,
+            oversizedBehavior: 'wrap',
+            textAlign: 'center',
+          }),
+        })
+      })
 
-          root.container.children.push(
-            am5.Container.new(root, {
-              x: centerX,
-              y: topY - 20,
-              centerX: am5.p50,
-              centerY: am5.p50,
-              children: [
-                am5.RoundedRectangle.new(root, {
-                  width: 70,
-                  height: 32,
-                  fill: BADGE_BG,
-                  cornerRadiusTL: 8,
-                  cornerRadiusTR: 8,
-                  cornerRadiusBL: 8,
-                  cornerRadiusBR: 8,
-                  shadowColor: am5.color(0x000000),
-                  shadowBlur: 3,
-                  shadowOpacity: 0.2,
-                }),
-                am5.Label.new(root, {
-                  text: `${dataItem.dataContext.value}%`,
-                  fill: TEXT_COLOR,
-                  fontSize: 12,
-                  fontWeight: '700',
-                  centerX: am5.p50,
-                  centerY: am5.p50,
-                }),
-              ],
-            })
-          )
+      // Percentage bullet above bars (renders on top of category)
+      series.bullets.push(function () {
+        return am5.Bullet.new(root, {
+          locationY: 1,
+          sprite: am5.Label.new(root, {
+            text: '{valueY}%',
+            populateText: true,
+            fill: TEXT_COLOR,
+            fontSize: pctFontSize,
+            fontWeight: '800',
+            centerX: am5.p50,
+            centerY: am5.p100,
+            dy: pctDy,
+          }),
         })
       })
 

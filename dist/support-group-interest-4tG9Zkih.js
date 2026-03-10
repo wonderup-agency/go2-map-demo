@@ -1,39 +1,25 @@
-import {
-  serializeInputs,
-  setupOtherFieldForSelect,
-  setupOtherFieldForCheckbox,
-  clearStepsErrors,
-  appendStepsErrors,
-  setButtonLoading,
-  resetButton,
-  hideFail,
-  showFail,
-  showSuccess,
-  hideForm,
-  dependentFieldsForSelect,
-} from '../../utils/functions'
-
-import validator from 'validator'
+import { g as setupOtherFieldForSelect, i as setupOtherFieldForCheckbox, j as dependentFieldsForSelect, h as hideFail, s as serializeInputs, v as validator, c as clearStepsErrors, a as appendStepsErrors, b as setButtonLoading, f as showFail, r as resetButton, d as hideForm, e as showSuccess } from './index-DzQMDp2Y.js';
+import './main-CB81Qu0F.js';
 
 /**
  * Handles form submission for a multi-step form component.
  * @param {HTMLElement} component - The form component containing steps and inputs.
  */
-export default function (component) {
-  const formInstances = component.forEach ? component : [component]
+function supportGroupInterest (component) {
+  const formInstances = component.forEach ? component : [component];
 
   formInstances.forEach((formInstance) => {
-    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/eyhunqogl9rgad784tzw3qf0klx5vusm'
-    const steps = Array.from(formInstance.querySelectorAll('[data-form="step"]'))
-    const idField = formInstance.querySelector('#id')
+    const webhookAddress = formInstance.dataset.webhook || 'https://hook.us2.make.com/eyhunqogl9rgad784tzw3qf0klx5vusm';
+    const steps = Array.from(formInstance.querySelectorAll('[data-form="step"]'));
+    const idField = formInstance.querySelector('#id');
 
-    const successEl = formInstance.querySelector('.w-form-done')
-    const failEl = formInstance.querySelector('.w-form-fail')
-    const formEl = formInstance.querySelector('form')
+    const successEl = formInstance.querySelector('.w-form-done');
+    const failEl = formInstance.querySelector('.w-form-fail');
+    const formEl = formInstance.querySelector('form');
 
     if (idField) {
-      idField.disabled = true
-      idField.type = 'hidden'
+      idField.disabled = true;
+      idField.type = 'hidden';
     }
 
     setupOtherFieldForSelect({
@@ -42,9 +28,7 @@ export default function (component) {
       otherValue: 'other-connection',
       fieldName: 'other-connection-to-lung-cancer',
       labelName: 'Specify other connection to lung cancer',
-      placeholder: 'Specify here',
-      wrapperClass: 'multi-form14_field-wrapper',
-    })
+      placeholder: 'Specify here'});
 
     setupOtherFieldForCheckbox({
       context: formInstance,
@@ -54,39 +38,39 @@ export default function (component) {
       labelName: 'Specify other interests',
       placeholder: 'Specify here',
       wrapperClass: 'multi-form14_field-wrapper',
-    })
+    });
 
     dependentFieldsForSelect({
       context: formInstance,
       selectId: 'copy-of-building-community-guide',
       dependentValue: 'Wants a copy via Mail',
-    })
+    });
 
     // hide all steps except the first one
     steps.forEach((step, i) => {
-      if (i !== 0) step.classList.add('hide')
-    })
+      if (i !== 0) step.classList.add('hide');
+    });
 
     formInstance.addEventListener('click', async (e) => {
-      const target = e.target
-      const nextBtn = target.closest('[data-form="next-btn"]')
-      const submitBtn = target.closest('[data-form="submit-btn"]')
-      const buttonText = target.closest('.button_text')
+      const target = e.target;
+      const nextBtn = target.closest('[data-form="next-btn"]');
+      const submitBtn = target.closest('[data-form="submit-btn"]');
+      const buttonText = target.closest('.button_text');
 
       // NEXT BUTTON HANDLER
       if (nextBtn || (buttonText && nextBtn)) {
         // Hide fail element on button press (validations will rerun)
-        hideFail(failEl)
+        hideFail(failEl);
 
-        const currentStepEl = nextBtn.closest('[data-form="step"]')
+        const currentStepEl = nextBtn.closest('[data-form="step"]');
         if (!currentStepEl) return // Avoid errors if no step found
 
-        const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
+        const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl);
         if (currentStepIndex === -1) return // Invalid index, abort
 
-        const stepInputsData = await serializeInputs(currentStepEl)
+        const stepInputsData = await serializeInputs(currentStepEl);
 
-        const errors = []
+        const errors = [];
 
         // Step-specific validations
         switch (currentStepIndex) {
@@ -97,43 +81,38 @@ export default function (component) {
                 fieldName: 'first-name',
                 error: 'Enter your first name',
                 appendAt: '.multi-form14_field-wrapper',
-              })
+              });
             }
             if (validator.isEmpty(stepInputsData['last-name'] || '')) {
               errors.push({
                 fieldName: 'last-name',
                 error: 'Enter your last name',
                 appendAt: '.multi-form14_field-wrapper',
-              })
+              });
             }
             if (!validator.isEmail(stepInputsData['email'] || '')) {
               errors.push({
                 fieldName: 'email',
                 error: 'Enter a valid email address (example: name@email.com)',
                 appendAt: '.multi-form14_field-wrapper',
-              })
+              });
             }
-            break
-
-          // Add more cases as needed for other steps
-
-          default:
             break
         }
 
         // Clear any existing errors
-        clearStepsErrors(currentStepEl)
+        clearStepsErrors();
 
         // If there are errors, append them and stop
         if (errors.length > 0) {
-          appendStepsErrors(errors, currentStepEl)
+          appendStepsErrors(errors, currentStepEl);
           return
         }
 
         // Set loading state
-        const nextBtnTextEl = nextBtn.querySelector('.button_text') || nextBtn.firstChild
-        const nextBtnInitialText = nextBtnTextEl?.textContent || 'Next'
-        setButtonLoading(nextBtn)
+        const nextBtnTextEl = nextBtn.querySelector('.button_text') || nextBtn.firstChild;
+        const nextBtnInitialText = nextBtnTextEl?.textContent || 'Next';
+        setButtonLoading(nextBtn);
 
         fetch(webhookAddress, {
           method: 'POST',
@@ -155,43 +134,43 @@ export default function (component) {
           })
           .then((data) => {
             if (idField) {
-              idField.value = data.id
+              idField.value = data.id;
             }
 
             // Hide current step and show next if exists
-            currentStepEl.classList.add('hide')
-            const nextIndex = currentStepIndex + 1
+            currentStepEl.classList.add('hide');
+            const nextIndex = currentStepIndex + 1;
             if (nextIndex < steps.length) {
-              steps[nextIndex].classList.remove('hide')
+              steps[nextIndex].classList.remove('hide');
             }
           })
           .catch((error) => {
-            console.error('Fetch error:', error)
-            showFail(failEl)
+            console.error('Fetch error:', error);
+            showFail(failEl);
           })
           .finally(() => {
-            resetButton(nextBtn, nextBtnInitialText)
-          })
+            resetButton(nextBtn, nextBtnInitialText);
+          });
       }
 
       // SUBMIT BUTTON HANDLER
       if (submitBtn || (buttonText && submitBtn)) {
-        e.preventDefault()
-        e.stopImmediatePropagation()
+        e.preventDefault();
+        e.stopImmediatePropagation();
 
         // Hide fail element on button press (validations will rerun)
-        hideFail(failEl)
+        hideFail(failEl);
 
-        const currentStepEl = submitBtn.closest('[data-form="step"]')
+        const currentStepEl = submitBtn.closest('[data-form="step"]');
         if (!currentStepEl) return // Avoid errors if no step found
 
-        const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl)
+        const currentStepIndex = Array.from(formEl?.children || []).indexOf(currentStepEl);
         if (currentStepIndex === -1) return // Invalid index, abort
 
         // const submitInputsData = serializeInputs(currentStepEl)
-        const submitInputsData = await serializeInputs(formInstance)
+        const submitInputsData = await serializeInputs(formInstance);
 
-        const errors = []
+        const errors = [];
 
         if (
           'other-connection-to-lung-cancer' in submitInputsData &&
@@ -201,7 +180,7 @@ export default function (component) {
             fieldName: 'other-connection-to-lung-cancer',
             error: 'Tell us your conection to long cancer',
             appendAt: '.multi-form14_field-wrapper',
-          })
+          });
         }
 
         if ('other-interests' in submitInputsData && validator.isEmpty(submitInputsData['other-interests'] || '')) {
@@ -209,68 +188,68 @@ export default function (component) {
             fieldName: 'other-interests',
             error: 'Tell us what are your interests',
             appendAt: '.multi-form14_field-wrapper',
-          })
+          });
         }
 
-        const streetAddressInput = currentStepEl.querySelector(`#street-address`)
-        const streetAddressWrapper = streetAddressInput.closest('[data-depends-on]')
-        const validateStreetAddress = streetAddressWrapper.getAttribute('data-active') === 'true'
-        const streetAddress = submitInputsData['street-address'] ?? ''
+        const streetAddressInput = currentStepEl.querySelector(`#street-address`);
+        const streetAddressWrapper = streetAddressInput.closest('[data-depends-on]');
+        const validateStreetAddress = streetAddressWrapper.getAttribute('data-active') === 'true';
+        const streetAddress = submitInputsData['street-address'] ?? '';
         if (validateStreetAddress && validator.isEmpty(streetAddress)) {
           errors.push({
             fieldName: 'street-address',
             error: 'Enter a valid street address',
             appendAt: '.multi-form14_field-wrapper',
-          })
+          });
         }
 
-        const cityInput = currentStepEl.querySelector(`#city`)
-        const cityWrapper = cityInput.closest('[data-depends-on]')
-        const validateCity = cityWrapper.getAttribute('data-active') === 'true'
-        const city = submitInputsData['city'] ?? ''
+        const cityInput = currentStepEl.querySelector(`#city`);
+        const cityWrapper = cityInput.closest('[data-depends-on]');
+        const validateCity = cityWrapper.getAttribute('data-active') === 'true';
+        const city = submitInputsData['city'] ?? '';
         if (validateCity && validator.isEmpty(city)) {
           errors.push({
             fieldName: 'city',
             error: 'Enter a valid city name',
             appendAt: '.multi-form14_field-wrapper',
-          })
+          });
         }
 
-        const zipCodeInput = currentStepEl.querySelector(`#zip-code`)
-        const zipCodeWrapper = zipCodeInput.closest('[data-depends-on]')
-        const validateZipCode = zipCodeWrapper.getAttribute('data-active') === 'true'
-        const zipCode = submitInputsData['zip-code'] ?? ''
+        const zipCodeInput = currentStepEl.querySelector(`#zip-code`);
+        const zipCodeWrapper = zipCodeInput.closest('[data-depends-on]');
+        const validateZipCode = zipCodeWrapper.getAttribute('data-active') === 'true';
+        const zipCode = submitInputsData['zip-code'] ?? '';
         if (validateZipCode && !validator.isPostalCode(String(zipCode), 'any')) {
           errors.push({
             fieldName: 'zip-code',
             error: 'Enter a valid ZIP or postal code',
             appendAt: '.multi-form14_field-wrapper',
-          })
+          });
         }
 
         // Clear any existing errors
-        clearStepsErrors(currentStepEl)
+        clearStepsErrors();
 
         // If there are errors, append them and stop
         if (errors.length > 0) {
-          appendStepsErrors(errors, currentStepEl)
+          appendStepsErrors(errors, currentStepEl);
           return
         }
 
         // remove conditional fields from final object
         if (document.querySelector('#copy-of-building-community-guide').value != 'Wants a copy via Mail') {
-          delete submitInputsData['street-address']
-          delete submitInputsData.city
-          delete submitInputsData.state
-          delete submitInputsData['zip-code']
+          delete submitInputsData['street-address'];
+          delete submitInputsData.city;
+          delete submitInputsData.state;
+          delete submitInputsData['zip-code'];
         }
 
         // Set loading state
-        const submitBtnTextEl = submitBtn.querySelector('.button_text') || submitBtn.firstChild
-        const submitBtnInitialText = submitBtnTextEl?.textContent || 'Submit'
-        setButtonLoading(submitBtn)
+        const submitBtnTextEl = submitBtn.querySelector('.button_text') || submitBtn.firstChild;
+        const submitBtnInitialText = submitBtnTextEl?.textContent || 'Submit';
+        setButtonLoading(submitBtn);
 
-        submitInputsData['id'] = idField.value
+        submitInputsData['id'] = idField.value;
 
         fetch(webhookAddress, {
           method: 'POST',
@@ -289,17 +268,20 @@ export default function (component) {
             }
           })
           .then(() => {
-            hideForm(formEl)
-            showSuccess(successEl)
+            hideForm(formEl);
+            showSuccess(successEl);
           })
           .catch((error) => {
-            console.error('Submit fetch error:', error)
-            showFail(failEl)
+            console.error('Submit fetch error:', error);
+            showFail(failEl);
           })
           .finally(() => {
-            resetButton(submitBtn, submitBtnInitialText)
-          })
+            resetButton(submitBtn, submitBtnInitialText);
+          });
       }
-    })
-  })
+    });
+  });
 }
+
+export { supportGroupInterest as default };
+//# sourceMappingURL=support-group-interest-4tG9Zkih.js.map
