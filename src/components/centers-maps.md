@@ -57,8 +57,8 @@ Returns **all categories combined** with each item normalized to a flat pin shap
 
 ```json
 {
-  "total": 2427,
-  "lastFetchedAt": "2026-03-05T01:52:25.296Z",
+  "total": 451,
+  "lastFetchedAt": "2026-03-13T00:00:00.000Z",
   "pins": [
     {
       "name": "Example Cancer Center",
@@ -84,6 +84,43 @@ Returns **all categories combined** with each item normalized to a flat pin shap
 - `category` is one of: `"COE"`, `"NCI"`, `"COC"`
 - Some pins may have `null` lat/lng — these are skipped by `turnFacilitiesIntoPins()`
 - No designations, no `fid`, no nested address object
+- COC count reduced from ~1,500 to 70 (switched from FACS API to curated CSV). NCI count: 69 (was 70)
+
+### `GET /centers` (normalized, all categories)
+
+Returns all categories with each item normalized to a flat shape. This is the underlying endpoint that `/centers/pins` derives from.
+
+NCI and COC entries include additional fields not present on COE entries:
+
+```json
+{
+  "name": "Dana-Farber/Harvard Cancer Center",
+  "address": "450 Brookline Ave",
+  "city": "Boston",
+  "state": "Massachussetts",
+  "zip": "02215",
+  "phone": "617-632-2100",
+  "website": "https://www.dana-farber.org/cancer-care/treatment/thoracic-lung-cancer",
+  "lat": 42.339174,
+  "lng": -71.107988,
+  "category": "NCI",
+  "institution": "",
+  "center_type": "NCI Cancer Center",
+  "additional_notes": ""
+}
+```
+
+**NCI/COC-specific fields** (not present on COE, not present on `/centers/pins`):
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `institution` | string | Parent institution name (may be empty) |
+| `center_type` | string | e.g. `"NCI Cancer Center"`, `"CoC"` |
+| `additional_notes` | string | Free-text notes (replaces old `notes` field on NCI) |
+
+**Removed fields** (previously on COC via FACS API, no longer present):
+
+- `coc_id`, `program_level`, `network_parent`
 
 ### `GET /centers?category=COE` (used by `centers-coe.js`)
 
@@ -155,6 +192,67 @@ Returns the list of available designation types for checkbox generation.
 }
 ```
 
+### `GET /centers?category=NCI` (raw)
+
+Returns raw NCI centers from curated CSV data (69 centers). URLs point to lung-cancer-specific pages.
+
+```json
+{
+  "total": 69,
+  "centers": [
+    {
+      "Center Name": "Dana-Farber/Harvard Cancer Center",
+      "Institution": "",
+      "Street Address": "450 Brookline Ave",
+      "City": "Boston",
+      "State": "Massachussetts",
+      "Zip Code": "02215",
+      "Center Type": "NCI Cancer Center",
+      "Website URL": "https://...",
+      "Phone Number": "617-632-2100",
+      "Latitude": 42.339174,
+      "Longitude": -71.107988,
+      "Additional Notes": ""
+    }
+  ]
+}
+```
+
+**Note:** The `Notes` field was renamed to `Additional Notes`.
+
+### `GET /centers?category=COC` (raw)
+
+Returns raw COC centers from curated CSV data (70 hand-picked centers with lung-cancer-specific URLs). Replaces the old FACS API source (~1,500+ results).
+
+```json
+{
+  "total": 70,
+  "source": "csv",
+  "centers": [
+    {
+      "Center Name": "Hartford HealthCare Cancer Institute at Hartford Hospital",
+      "Institution": "",
+      "Street Address": "80 Seymour Street",
+      "City": "Hartford",
+      "State": "Connecticut",
+      "Zip Code": "06102",
+      "Center Type": "CoC",
+      "Website URL": "https://...",
+      "Phone Number": "860-545-5000",
+      "Latitude": 41.7628,
+      "Longitude": -72.6734,
+      "Additional Notes": "Multiple locations all over CT"
+    }
+  ]
+}
+```
+
+**Removed fields** (previously from FACS API): `id` (`coc_id`), `program_level`, `network_parent`, `webSite`, `addressLine1`, `locationPoint`, `childInstitutions`.
+
+### `GET /centers?category=COC&source=api` (rollback)
+
+Fetches live from the FACS API, bypassing the CSV data. Returns the old FACS API format (~1,500+ results). Use for comparison or rollback.
+
 ### `GET /centers/schema`
 
 Returns the full schema reference for all endpoints (useful for debugging).
@@ -171,29 +269,29 @@ Displays **all center categories** (COE, NCI, COC) on a single map with a catego
 
 The component root element must have `data-component="centers-all"`. Required child elements:
 
-| Selector                             | Type       | Purpose                                               |
-| ------------------------------------ | ---------- | ----------------------------------------------------- |
-| `[data-centers="list"]`              | Container  | Scrollable list of center cards (paginated)           |
-| `[data-centers="map"]`               | Div        | Google Map render target                              |
-| `[data-centers="pagination"]`        | Container  | Pagination controls (prev/next arrows + page buttons) |
-| `[data-custom="centers-zip-field"]`  | Input      | Search field (zip, city, or address)                  |
-| `[data-centers="categories-select"]` | Select     | Category dropdown (All / GO2 / NCI / COC)             |
-| `[data-centers="search-message"]`    | Element    | Contextual message shown during zip search            |
-| `[data-centers="list-item"]`         | Button/Div | Template element (cloned, then removed from DOM)      |
+| Selector | Type | Purpose |
+| --- | --- | --- |
+| `[data-centers="list"]` | Container | Scrollable list of center cards (paginated) |
+| `[data-centers="map"]` | Div | Google Map render target |
+| `[data-centers="pagination"]` | Container | Pagination controls (prev/next arrows + page buttons) |
+| `[data-custom="centers-zip-field"]` | Input | Search field (zip, city, or address) |
+| `[data-centers="categories-select"]` | Select | Category dropdown (All / GO2 / NCI / COC) |
+| `[data-centers="search-message"]` | Element | Contextual message shown during zip search |
+| `[data-centers="list-item"]` | Button/Div | Template element (cloned, then removed from DOM) |
 
 List item template inner elements:
 
-| Selector                            | Purpose                                             |
-| ----------------------------------- | --------------------------------------------------- |
-| `[data-center="icon"]`              | Pin icon image (set to category-specific pin)       |
-| `[data-center="image"]`             | Center photo (from `image_url`; removed if missing) |
-| `[data-custom="center-name"]`       | Center name text                                    |
-| `[data-custom="center-type"]`       | Category label (e.g. "GO2 Center of Excellence")    |
-| `[data-custom="center-address"]`    | Street address                                      |
-| `[data-custom="center-city-state"]` | City, State text                                    |
-| `[data-centers="phone"]`            | Phone link (`<a href="tel:...">`)                   |
-| `[data-center="website"]`           | Website link                                        |
-| `[data-centers="directions"]`       | Google Maps directions link                         |
+| Selector | Purpose |
+| --- | --- |
+| `[data-center="icon"]` | Pin icon image (set to category-specific pin) |
+| `[data-center="image"]` | Center photo (from `image_url`; removed if missing) |
+| `[data-custom="center-name"]` | Center name text |
+| `[data-custom="center-type"]` | Category label (e.g. "GO2 Center of Excellence") |
+| `[data-custom="center-address"]` | Street address |
+| `[data-custom="center-city-state"]` | City, State text |
+| `[data-centers="phone"]` | Phone link (`<a href="tel:...">`) |
+| `[data-center="website"]` | Website link |
+| `[data-centers="directions"]` | Google Maps directions link |
 
 ### Data Flow
 
@@ -236,12 +334,12 @@ data.pins[]         ──→  turnFacilitiesIntoPins()  ──→  allPins[]
 
 The `<select>` dropdown option values map to API category strings:
 
-| Select Option Value | API Category | Pin Icon                    |
-| ------------------- | ------------ | --------------------------- |
-| `"all"`             | (no filter)  | Per-category                |
-| `"GO2 designated"`  | `"COE"`      | COE_PIN (52x52, green star) |
-| `"NCI designated"`  | `"NCI"`      | NCI_PIN (32x32, purple)     |
-| `"COC"`             | `"COC"`      | COC_PIN (32x32, blue)       |
+| Select Option Value | API Category | Pin Icon |
+| --- | --- | --- |
+| `"all"` | (no filter) | Per-category |
+| `"GO2 designated"` | `"COE"` | COE_PIN (52x52, green star) |
+| `"NCI designated"` | `"NCI"` | NCI_PIN (32x32, purple) |
+| `"COC"` | `"COC"` | COC_PIN (32x32, blue) |
 
 This mapping is defined in `CATEGORY_MAP`. If the select value isn't in the map, all pins are shown.
 
@@ -249,11 +347,11 @@ This mapping is defined in `CATEGORY_MAP`. If the select value isn't in the map,
 
 Displayed in the `[data-custom="center-type"]` element:
 
-| Category | Label                    |
-| -------- | ------------------------ |
-| `COE`    | GO2 Center of Excellence |
-| `NCI`    | NCI Cancer Center        |
-| `COC`    | COC Accredited           |
+| Category | Label |
+| --- | --- |
+| `COE` | GO2 Center of Excellence |
+| `NCI` | NCI Cancer Center |
+| `COC` | COC Accredited |
 
 Defined in `CATEGORY_LABELS`. Falls back to the raw category string.
 
@@ -269,12 +367,12 @@ Displays **COE centers only** with designation-level detail and filtering. Suppo
 
 Same base elements as `centers-all.js`, plus:
 
-| Selector                             | Type              | Purpose                                               |
-| ------------------------------------ | ----------------- | ----------------------------------------------------- |
-| `[data-centers="pagination"]`        | Container         | Pagination controls (prev/next arrows + page buttons) |
-| `.map_filters-right-category-nav`    | Nav/Container     | Holds dynamically generated designation checkboxes    |
-| `[data-centers="search-message"]`    | Element           | Contextual message shown during zip search            |
-| `data-show-only-screening` attribute | On component root | Set to `"true"` to lock to screening-only mode        |
+| Selector | Type | Purpose |
+| --- | --- | --- |
+| `[data-centers="pagination"]` | Container | Pagination controls (prev/next arrows + page buttons) |
+| `.map_filters-right-category-nav` | Nav/Container | Holds dynamically generated designation checkboxes |
+| `[data-centers="search-message"]` | Element | Contextual message shown during zip search |
+| `data-show-only-screening` attribute | On component root | Set to `"true"` to lock to screening-only mode |
 
 ### Data Flow
 
@@ -375,11 +473,11 @@ Both components use the same approach:
 
 **Map markers** use `PinElement` with colored backgrounds (via `createAdvancedPin()`):
 
-| Category | Background | Border    | Scale | Used For          |
-| -------- | ---------- | --------- | ----- | ----------------- |
-| `COE`    | `#BBCB32`  | `#9AB01E` | 1.5   | COE / GO2 centers |
-| `NCI`    | `#835A91`  | `#6A4575` | 1.0   | NCI centers       |
-| `COC`    | `#235189`  | `#1A3D6B` | 1.0   | COC centers       |
+| Category | Background | Border | Scale | Used For |
+| --- | --- | --- | --- | --- |
+| `COE` | `#BBCB32` | `#FFFFFF` | 1.5 | COE / GO2 centers |
+| `NCI` | `#835A91` | `#FFFFFF` | 1.0 | NCI centers |
+| `COC` | `#235189` | `#FFFFFF` | 1.0 | COC centers |
 
 All pins use white glyphs. COE pins are larger (scale 1.5) for visual priority.
 
@@ -423,19 +521,19 @@ Both components paginate the sidebar list to reduce DOM load (configurable via `
 
 #### Pagination state variables
 
-| Variable              | Purpose                                                              |
-| --------------------- | -------------------------------------------------------------------- |
-| `currentPage`         | The 1-based current page number                                      |
+| Variable | Purpose |
+| --- | --- |
+| `currentPage` | The 1-based current page number |
 | `currentFilteredPins` | The full filtered pin array (used by `renderListPage()` for slicing) |
 
 #### Key functions
 
-| Function                                         | Purpose                                                                          |
-| ------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `renderCenters(pins)`                            | Stores filtered pins, clears/rebuilds map markers, calls `renderListPage()`      |
-| `renderListPage()`                               | Clears and re-renders only the current page's list items + pagination controls   |
+| Function | Purpose |
+| --- | --- |
+| `renderCenters(pins)` | Stores filtered pins, clears/rebuilds map markers, calls `renderListPage()` |
+| `renderListPage()` | Clears and re-renders only the current page's list items + pagination controls |
 | `buildPaginationControls(container, totalPages)` | Populates the pagination container with prev/next arrows and page number buttons |
-| `getPageNumbers(current, total, maxButtons)`     | Returns array of page numbers and `'...'` ellipses for the button row            |
+| `getPageNumbers(current, total, maxButtons)` | Returns array of page numbers and `'...'` ellipses for the button row |
 
 ### Filter Execution
 
@@ -479,20 +577,20 @@ Both components look for a `[data-centers="search-message"]` element. When a sea
 
 #### Configuration
 
-| Variable              | Default | Purpose                                |
-| --------------------- | ------- | -------------------------------------- |
-| `NEARBY_RADIUS_MILES` | `50`    | Radius (miles) for "nearby" threshold  |
-| `MAX_SEARCH_ZOOM`     | `13`    | Maximum zoom level after `fitBounds()` |
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NEARBY_RADIUS_MILES` | `50` | Radius (miles) for "nearby" threshold |
+| `MAX_SEARCH_ZOOM` | `13` | Maximum zoom level after `fitBounds()` |
 
 #### State Variables
 
-| Variable               | Purpose                                                        |
-| ---------------------- | -------------------------------------------------------------- |
-| `searchLocation`       | `{ lat, lng, city, state }` from geocode, or `null`            |
-| `searchLocationMarker` | AdvancedMarkerElement for the blue circle, or `null`           |
-| `searchNearbyCount`    | Number of facilities within the radius (0 = fallback mode)     |
-| `debounceTimer`        | Timer ID for debouncing geocode calls (500ms)                  |
-| `postalCodeLayer`      | POSTAL_CODE feature layer for zip boundary outlines, or `null` |
+| Variable | Purpose |
+| --- | --- |
+| `searchLocation` | `{ lat, lng, city, state }` from geocode, or `null` |
+| `searchLocationMarker` | AdvancedMarkerElement for the blue circle, or `null` |
+| `searchNearbyCount` | Number of facilities within the radius (0 = fallback mode) |
+| `debounceTimer` | Timer ID for debouncing geocode calls (500ms) |
+| `postalCodeLayer` | POSTAL_CODE feature layer for zip boundary outlines, or `null` |
 
 ### Initial Render vs Filter Render
 
@@ -508,19 +606,19 @@ Both components use an `isInitialRender` flag to control map viewport behavior:
 
 All configurable values are defined as `var` constants at the top of each file:
 
-| Variable              | Default                    | Purpose                                 |
-| --------------------- | -------------------------- | --------------------------------------- |
-| `API_URL`             | See above                  | Fetch endpoint                          |
-| `DESIGNATIONS_URL`    | `.../centers/designations` | COE only — designation types endpoint   |
-| `GOOGLE_MAPS_API_KEY` | `AIzaSyDz...`              | Google Maps JS API key                  |
-| `STARTING_LAT`        | `37.5`                     | Initial map center latitude             |
-| `STARTING_LNG`        | `-95.7`                    | Initial map center longitude            |
-| `STARTING_ZOOM`       | `4`                        | Initial zoom level                      |
-| `CLICK_ZOOM`          | `14`                       | Zoom level when clicking a center       |
-| `CLUSTER_RADIUS`      | `60`                       | Pixel radius for marker clustering      |
-| `ITEMS_PER_PAGE`      | `3`                        | Number of list items shown per page     |
-| `NEARBY_RADIUS_MILES` | `50`                       | Radius (miles) for geocode-based search |
-| `MAX_SEARCH_ZOOM`     | `13`                       | Maximum zoom after fitBounds on search  |
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `API_URL` | See above | Fetch endpoint |
+| `DESIGNATIONS_URL` | `.../centers/designations` | COE only — designation types endpoint |
+| `GOOGLE_MAPS_API_KEY` | `AIzaSyDz...` | Google Maps JS API key |
+| `STARTING_LAT` | `37.5` | Initial map center latitude |
+| `STARTING_LNG` | `-95.7` | Initial map center longitude |
+| `STARTING_ZOOM` | `4` | Initial zoom level |
+| `CLICK_ZOOM` | `14` | Zoom level when clicking a center |
+| `CLUSTER_RADIUS` | `60` | Pixel radius for marker clustering |
+| `ITEMS_PER_PAGE` | `3` | Number of list items shown per page |
+| `NEARBY_RADIUS_MILES` | `50` | Radius (miles) for geocode-based search |
+| `MAX_SEARCH_ZOOM` | `13` | Maximum zoom after fitBounds on search |
 
 ---
 
