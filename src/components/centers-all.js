@@ -32,7 +32,7 @@ var CLICK_ZOOM = 14
 var CLUSTER_RADIUS = 60
 
 // How many list items to show per page (pagination)
-var ITEMS_PER_PAGE = 2
+var ITEMS_PER_PAGE = 3
 
 // -----------------------------------------------------------------------------
 // PIN IMAGES — each pin type has its own image, size, and anchor point.
@@ -74,7 +74,6 @@ var CATEGORY_LABELS = {
 // HELPER FUNCTIONS
 // =============================================================================
 
-var GEOCODE_URL = 'https://go2-worker.nahuel-eba.workers.dev/geocode'
 var NEARBY_RADIUS_MILES = 50
 var MAX_SEARCH_ZOOM = 13
 
@@ -89,10 +88,28 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
   return R * c
 }
 
-async function geocodeZip(zip) {
-  var response = await fetch(GEOCODE_URL + '?zip=' + encodeURIComponent(zip))
-  if (!response.ok) return null
-  return response.json()
+var geocoder = null
+
+async function geocodeInput(input) {
+  if (!geocoder) geocoder = new google.maps.Geocoder()
+  return new Promise(function (resolve) {
+    geocoder.geocode({ address: input }, function (results, status) {
+      if (status === 'OK' && results.length > 0) {
+        var result = results[0]
+        var location = result.geometry.location
+        var city = '',
+          state = ''
+        for (var i = 0; i < result.address_components.length; i++) {
+          var comp = result.address_components[i]
+          if (comp.types.indexOf('locality') !== -1) city = comp.long_name
+          if (comp.types.indexOf('administrative_area_level_1') !== -1) state = comp.short_name
+        }
+        resolve({ lat: location.lat(), lng: location.lng(), city: city, state: state, placeId: result.place_id })
+      } else {
+        resolve(null)
+      }
+    })
+  })
 }
 
 function createGoogleMapsIcon(pinConfig) {
@@ -103,7 +120,16 @@ function createGoogleMapsIcon(pinConfig) {
   }
 }
 
-function createClusterIcon(count) {
+function createAdvancedPin(category) {
+  return new google.maps.marker.PinElement({
+    background: category === 'COE' ? '#BBCB32' : category === 'NCI' ? '#835A91' : '#235189',
+    borderColor: '#FFFFFF',
+    glyphColor: '#FFFFFF',
+    scale: category === 'COE' ? 1.5 : 1.0,
+  })
+}
+
+function createClusterSvg(count) {
   var numberOfDigits = String(count).length
   var bubbleSize = 36
   if (numberOfDigits === 2) bubbleSize = 40
@@ -112,7 +138,7 @@ function createClusterIcon(count) {
   var center = bubbleSize / 2
   var radius = center - 2
 
-  var svg =
+  return (
     '<svg xmlns="http://www.w3.org/2000/svg"' +
     ' width="' +
     bubbleSize +
@@ -144,12 +170,7 @@ function createClusterIcon(count) {
     count +
     '</text>' +
     '</svg>'
-
-  return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-    scaledSize: new google.maps.Size(bubbleSize, bubbleSize),
-    anchor: new google.maps.Point(center, center),
-  }
+  )
 }
 
 /**
@@ -194,8 +215,28 @@ function turnFacilitiesIntoPins(facilities) {
 // MAIN — this function runs when the component loads on the page
 // =============================================================================
 
+function reorderMobileLayout(component) {
+  var filters = component.querySelector('.map_filters')
+  if (!filters) return
+
+  var mapRight = component.querySelector('.map_right')
+
+  function reorder() {
+    if (window.innerWidth <= 991) {
+      component.insertBefore(filters, component.firstChild)
+    } else if (mapRight) {
+      mapRight.insertBefore(filters, mapRight.firstChild)
+    }
+  }
+
+  reorder()
+  window.addEventListener('resize', reorder)
+}
+
 export default async function (component) {
   console.log('[ALL] Component initializing...')
+
+  reorderMobileLayout(component)
 
   // --------------------------------------------------------------------------
   // 1. FIND THE HTML ELEMENTS WE NEED
@@ -261,6 +302,7 @@ export default async function (component) {
     zoom: STARTING_ZOOM,
     mapTypeControl: false,
     streetViewControl: false,
+    mapId: '883ace1c7764e279269aed54',
   })
 
   // --------------------------------------------------------------------------
@@ -347,6 +389,7 @@ export default async function (component) {
   var searchLocationMarker = null
   var searchNearbyCount = 0
   var debounceTimer = null
+  var postalCodeLayer = null
   var searchMessage = component.querySelector('[data-centers="search-message"]')
   console.log('[ALL] searchMessage element found:', !!searchMessage, searchMessage)
   if (searchMessage) searchMessage.style.display = 'none'
@@ -367,11 +410,11 @@ export default async function (component) {
       currentClusterer = null
     }
     for (var i = 0; i < currentMarkers.length; i++) {
-      currentMarkers[i].setMap(null)
+      currentMarkers[i].map = null
     }
     currentMarkers = []
     if (searchLocationMarker) {
-      searchLocationMarker.setMap(null)
+      searchLocationMarker.map = null
       searchLocationMarker = null
     }
 
@@ -416,17 +459,25 @@ export default async function (component) {
 
     for (var i = 0; i < pinsToShow.length; i++) {
       var pin = pinsToShow[i]
-      var pinIcon = getIconForCategory(pin.category)
       var position = { lat: pin.lat, lng: pin.lng }
 
-      var marker = new google.maps.Marker({
+      var collisionBehavior
+      if (pin.category === 'COE') {
+        collisionBehavior = google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL
+      } else {
+        collisionBehavior = google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY
+      }
+
+      var marker = new google.maps.marker.AdvancedMarkerElement({
         position: position,
-        icon: pinIcon,
         map: null,
+        content: createAdvancedPin(pin.category),
+        collisionBehavior: collisionBehavior,
+        zIndex: pin.category === 'COE' ? 1000 : pin.category === 'NCI' ? 500 : 100,
       })
 
-      marker.addListener('mouseover', createMarkerClickHandler(marker, pin))
-      marker.addListener('mouseout', function () {
+      marker.element.addEventListener('mouseenter', createMarkerClickHandler(marker, pin))
+      marker.element.addEventListener('mouseleave', function () {
         closeTimeout = setTimeout(function () {
           infoWindow.close()
         }, 300)
@@ -441,27 +492,24 @@ export default async function (component) {
       map: map,
       markers: currentMarkers,
       renderer: { render: renderCluster },
-      algorithm: new SuperClusterAlgorithm({ radius: CLUSTER_RADIUS }),
+      algorithm: new SuperClusterAlgorithm({ radius: CLUSTER_RADIUS, minPoints: 3 }),
     })
 
     // ── Show or hide the search location marker ─────────────────────────
     if (searchLocationMarker) {
-      searchLocationMarker.setMap(null)
+      searchLocationMarker.map = null
       searchLocationMarker = null
     }
 
     if (searchLocation) {
-      searchLocationMarker = new google.maps.Marker({
+      var searchDot = document.createElement('div')
+      searchDot.style.cssText =
+        'width:20px;height:20px;background:#4285F4;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);'
+
+      searchLocationMarker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: searchLocation.lat, lng: searchLocation.lng },
         map: map,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: '#4285F4',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 3,
-        },
+        content: searchDot,
         zIndex: 9999,
         title: 'Your search location',
       })
@@ -484,7 +532,7 @@ export default async function (component) {
     } else if (currentMarkers.length > 1) {
       map.fitBounds(bounds)
     } else if (currentMarkers.length === 1) {
-      map.setCenter(currentMarkers[0].getPosition())
+      map.setCenter(currentMarkers[0].position)
       map.setZoom(CLICK_ZOOM)
     }
   }
@@ -779,10 +827,10 @@ export default async function (component) {
       map.setZoom(CLICK_ZOOM)
 
       for (var i = 0; i < currentMarkers.length; i++) {
-        var markerPosition = currentMarkers[i].getPosition()
-        if (markerPosition.lat() === pin.lat && markerPosition.lng() === pin.lng) {
+        var markerPosition = currentMarkers[i].position
+        if (markerPosition.lat === pin.lat && markerPosition.lng === pin.lng) {
           infoWindow.setContent(buildInfoWindowElement(pin))
-          infoWindow.open(map, currentMarkers[i])
+          infoWindow.open({ map: map, anchor: currentMarkers[i] })
           break
         }
       }
@@ -793,7 +841,7 @@ export default async function (component) {
     return function () {
       clearTimeout(closeTimeout)
       infoWindow.setContent(buildInfoWindowElement(pin))
-      infoWindow.open(map, marker)
+      infoWindow.open({ map: map, anchor: marker })
     }
   }
 
@@ -804,10 +852,15 @@ export default async function (component) {
   function renderCluster(clusterData) {
     var count = clusterData.count
     var position = clusterData.position
-    var icon = createClusterIcon(count)
-    return new google.maps.Marker({
+    var svg = createClusterSvg(count)
+
+    var clusterElement = document.createElement('div')
+    clusterElement.innerHTML = svg
+    clusterElement.style.cursor = 'pointer'
+
+    return new google.maps.marker.AdvancedMarkerElement({
       position: position,
-      icon: icon,
+      content: clusterElement,
       zIndex: 1000 + count,
     })
   }
@@ -847,18 +900,29 @@ export default async function (component) {
       }
     }
 
-    // ── Step 2: Filter by zip code ──────────────────────────────────────
-    var typedZip = zipInput.value.trim()
+    // ── Step 2: Filter by search input (zip code or city/state) ────────
+    var typedInput = zipInput.value.trim()
 
-    console.log('[ALL] typedZip:', JSON.stringify(typedZip), 'length:', typedZip.length)
+    console.log('[ALL] typedInput:', JSON.stringify(typedInput), 'length:', typedInput.length)
 
-    if (typedZip.length === 5 && /^\d{5}$/.test(typedZip)) {
-      // ── Full zip: distance-based search ──
-      console.log('[ALL] Calling geocodeZip for:', typedZip)
-      var geo = await geocodeZip(typedZip)
+    if (typedInput.length >= 3) {
+      // ── 3+ chars: geocode and distance-based search ──
+      console.log('[ALL] Calling geocodeInput for:', typedInput)
+      var geo = await geocodeInput(typedInput)
       console.log('[ALL] Geocode response:', geo)
       if (geo) {
         searchLocation = { lat: geo.lat, lng: geo.lng, city: geo.city, state: geo.state }
+
+        // Show zip boundary outline if available
+        if (geo.placeId && postalCodeLayer) {
+          var searchedPlaceId = geo.placeId
+          postalCodeLayer.style = function (options) {
+            if (options.feature.placeId === searchedPlaceId) {
+              return { strokeColor: '#2c3495', strokeWeight: 2, fillOpacity: 0.05, fillColor: '#2c3495' }
+            }
+            return null
+          }
+        }
 
         for (var i = 0; i < filteredPins.length; i++) {
           filteredPins[i]._distance = haversineDistance(geo.lat, geo.lng, filteredPins[i].lat, filteredPins[i].lng)
@@ -876,22 +940,18 @@ export default async function (component) {
         console.log('[ALL] Distance search from', geo.city + ', ' + geo.state + ':', filteredPins.length, 'results')
       } else {
         searchLocation = null
+        if (postalCodeLayer) postalCodeLayer.style = null
         filteredPins = []
-        console.log('[ALL] Zip code not found:', typedZip)
+        console.log('[ALL] Geocode failed for:', typedInput)
       }
-    } else if (typedZip !== '') {
-      // ── Partial zip: keep current prefix match behavior ──
+    } else if (typedInput.length > 0) {
+      // ── 1-2 chars: too short, do nothing (keep all pins) ──
       searchLocation = null
-      var zipMatches = []
-      for (var i = 0; i < filteredPins.length; i++) {
-        if (String(filteredPins[i].zip).startsWith(typedZip)) {
-          zipMatches.push(filteredPins[i])
-        }
-      }
-      filteredPins = zipMatches
-      console.log('[ALL] Zip filter "' + typedZip + '":', filteredPins.length, 'matches')
+      if (postalCodeLayer) postalCodeLayer.style = null
+      console.log('[ALL] Input too short, showing all')
     } else {
       searchLocation = null
+      if (postalCodeLayer) postalCodeLayer.style = null
     }
 
     // ── Step 3: Render the filtered results ─────────────────────────────
@@ -910,6 +970,13 @@ export default async function (component) {
     templateElement.remove()
   }
 
+  // Try to get the POSTAL_CODE feature layer for zip boundary outlines
+  try {
+    postalCodeLayer = map.getFeatureLayer('POSTAL_CODE')
+  } catch (e) {
+    console.log('[ALL] POSTAL_CODE feature layer not available:', e.message)
+  }
+
   console.log('[ALL] Initial render with', allPins.length, 'total pins')
   renderCenters(allPins)
 
@@ -920,25 +987,18 @@ export default async function (component) {
     }
   })
 
-  // Re-render whenever the user types in the zip field (debounced for 5-digit zips)
+  // Re-render whenever the user types in the search field (debounced for geocode)
   zipInput.addEventListener('input', function () {
     clearTimeout(debounceTimer)
     var val = zipInput.value.trim()
-    console.log(
-      '[ALL] Zip input changed:',
-      JSON.stringify(val),
-      'length:',
-      val.length,
-      'is5digit:',
-      /^\d{5}$/.test(val)
-    )
+    console.log('[ALL] Search input changed:', JSON.stringify(val), 'length:', val.length)
 
-    if (val.length === 5 && /^\d{5}$/.test(val)) {
-      console.log('[ALL] Debouncing geocode call for zip:', val)
+    if (val.length >= 3) {
+      console.log('[ALL] Debouncing geocode call for:', val)
       debounceTimer = setTimeout(function () {
         applyAllFilters()
-      }, 300)
-    } else {
+      }, 500)
+    } else if (val.length === 0) {
       applyAllFilters()
     }
   })
