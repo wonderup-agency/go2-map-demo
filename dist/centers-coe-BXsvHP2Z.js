@@ -1,3 +1,5 @@
+import { s as setOptions, i as importLibrary, M as MarkerClusterer, S as SuperClusterAlgorithm } from './index.esm-Cx65cC6w.js';
+
 // centers-coe.js
 //
 // This component fetches facility data from an API, then draws pins on a
@@ -5,37 +7,35 @@
 // Users can filter centers by typing a zip code and/or selecting designation
 // type checkboxes (e.g. Screening, Cancer Care, etc.).
 
-import { setOptions, importLibrary } from '@googlemaps/js-api-loader'
-import { MarkerClusterer, SuperClusterAlgorithm } from '@googlemaps/markerclusterer'
 
 // =============================================================================
 // SETTINGS — edit these values to configure the map
 // =============================================================================
 
 // Where to fetch the list of facilities from
-var API_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers?category=COE'
+var API_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers?category=COE';
 
 // Where to fetch the list of available designation types from
-var DESIGNATIONS_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers/designations'
+var DESIGNATIONS_URL = 'https://go2-worker.nahuel-eba.workers.dev/centers/designations';
 
 // Google Maps API key
-var GOOGLE_MAPS_API_KEY = 'AIzaSyDzjnzJImLe2q2uc8ziZYmQVPrI9TDukww'
+var GOOGLE_MAPS_API_KEY = 'AIzaSyDzjnzJImLe2q2uc8ziZYmQVPrI9TDukww';
 
 // Where the map is centered when it first loads (lat/lng of central US)
-var STARTING_LAT = 37.5
-var STARTING_LNG = -95.7
+var STARTING_LAT = 37.5;
+var STARTING_LNG = -95.7;
 
 // How far zoomed in/out the map starts (lower = more zoomed out)
-var STARTING_ZOOM = 4
+var STARTING_ZOOM = 4;
 
 // How far to zoom in when a user clicks on a center
-var CLICK_ZOOM = 14
+var CLICK_ZOOM = 14;
 
 // How close pins need to be (in pixels) before they merge into a cluster
-var CLUSTER_RADIUS = 60
+var CLUSTER_RADIUS = 60;
 
 // How many list items to show per page (pagination)
-var ITEMS_PER_PAGE = 3
+var ITEMS_PER_PAGE = 3;
 
 // -----------------------------------------------------------------------------
 // PIN IMAGES — each pin type has its own image, size, and anchor point.
@@ -50,19 +50,19 @@ var COE_PIN = {
   imageUrl: 'https://cdn.prod.website-files.com/685abc7fe66bf3b67a6af38e/69a5829ede217c58b6303bb4_pin-coe-1.png',
   size: [52, 52],
   anchor: [26, 52],
-}
+};
 
 var NCI_PIN = {
   imageUrl: 'https://cdn.prod.website-files.com/685abc7fe66bf3b67a6af38e/699cbe556ade1b088be0322b_pin-nci.png',
   size: [32, 32],
   anchor: [16, 32],
-}
+};
 
 var COC_PIN = {
   imageUrl: 'https://cdn.prod.website-files.com/685abc7fe66bf3b67a6af38e/699cbe5541e827aa53093410_pin-coc.png',
   size: [32, 32],
   anchor: [16, 32],
-}
+};
 
 // -----------------------------------------------------------------------------
 // DESIGNATION LABELS — human-readable names for the designation types
@@ -75,7 +75,7 @@ var DESIGNATION_LABELS = {
   cancer_care: 'Cancer Care',
   ipn: 'IPN',
   biomarker: 'Biomarker',
-}
+};
 
 // Fallback: if a type isn't in the list above, capitalize it and replace underscores
 function getDesignationLabel(type) {
@@ -83,7 +83,7 @@ function getDesignationLabel(type) {
     return DESIGNATION_LABELS[type]
   }
   // "some_new_type" → "Some new type"
-  var words = type.replace(/_/g, ' ')
+  var words = type.replace(/_/g, ' ');
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -91,41 +91,41 @@ function getDesignationLabel(type) {
 // HELPER FUNCTIONS
 // =============================================================================
 
-var NEARBY_RADIUS_MILES = 50
-var MAX_SEARCH_ZOOM = 13
+var NEARBY_RADIUS_MILES = 50;
+var MAX_SEARCH_ZOOM = 13;
 
 function haversineDistance(lat1, lng1, lat2, lng2) {
-  var R = 3959
-  var dLat = ((lat2 - lat1) * Math.PI) / 180
-  var dLng = ((lng2 - lng1) * Math.PI) / 180
+  var R = 3959;
+  var dLat = ((lat2 - lat1) * Math.PI) / 180;
+  var dLng = ((lng2 - lng1) * Math.PI) / 180;
   var a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c
 }
 
-var geocoder = null
+var geocoder = null;
 
 async function geocodeInput(input) {
-  if (!geocoder) geocoder = new google.maps.Geocoder()
+  if (!geocoder) geocoder = new google.maps.Geocoder();
   return new Promise(function (resolve) {
     geocoder.geocode({ address: input }, function (results, status) {
       if (status === 'OK' && results.length > 0) {
-        var result = results[0]
-        var location = result.geometry.location
+        var result = results[0];
+        var location = result.geometry.location;
         var city = '',
-          state = ''
+          state = '';
         for (var i = 0; i < result.address_components.length; i++) {
-          var comp = result.address_components[i]
-          if (comp.types.indexOf('locality') !== -1) city = comp.long_name
-          if (comp.types.indexOf('administrative_area_level_1') !== -1) state = comp.short_name
+          var comp = result.address_components[i];
+          if (comp.types.indexOf('locality') !== -1) city = comp.long_name;
+          if (comp.types.indexOf('administrative_area_level_1') !== -1) state = comp.short_name;
         }
-        resolve({ lat: location.lat(), lng: location.lng(), city: city, state: state, placeId: result.place_id })
+        resolve({ lat: location.lat(), lng: location.lng(), city: city, state: state, placeId: result.place_id });
       } else {
-        resolve(null)
+        resolve(null);
       }
-    })
+    });
   })
 }
 
@@ -155,13 +155,13 @@ function createAdvancedPin() {
 }
 
 function createClusterSvg(count) {
-  var numberOfDigits = String(count).length
-  var bubbleSize = 36
-  if (numberOfDigits === 2) bubbleSize = 40
-  if (numberOfDigits > 2) bubbleSize = 48
+  var numberOfDigits = String(count).length;
+  var bubbleSize = 36;
+  if (numberOfDigits === 2) bubbleSize = 40;
+  if (numberOfDigits > 2) bubbleSize = 48;
 
-  var center = bubbleSize / 2
-  var radius = center - 2
+  var center = bubbleSize / 2;
+  var radius = center - 2;
 
   return (
     '<svg xmlns="http://www.w3.org/2000/svg"' +
@@ -211,10 +211,10 @@ function createClusterSvg(count) {
  * so we can filter by designation type later.
  */
 function turnFacilitiesIntoPins(facilities) {
-  var allPins = []
+  var allPins = [];
 
   for (var i = 0; i < facilities.length; i++) {
-    var facility = facilities[i]
+    var facility = facilities[i];
 
     // Skip facilities that have no designations at all
     if (!facility.designations || facility.designations.length === 0) {
@@ -222,35 +222,35 @@ function turnFacilitiesIntoPins(facilities) {
     }
 
     // Collect ALL designation types this facility has (e.g. ["screening", "cancer_care"])
-    var facilityDesignationTypes = []
+    var facilityDesignationTypes = [];
     for (var d = 0; d < facility.designations.length; d++) {
-      var desType = facility.designations[d].type
+      var desType = facility.designations[d].type;
       if (desType && facilityDesignationTypes.indexOf(desType) === -1) {
-        facilityDesignationTypes.push(desType)
+        facilityDesignationTypes.push(desType);
       }
     }
 
     // We use this to avoid placing two pins at the exact same spot for one facility.
     // The key is "lat,lng" and the value is the location info.
-    var uniqueLocations = {}
+    var uniqueLocations = {};
 
     for (var j = 0; j < facility.designations.length; j++) {
-      var designation = facility.designations[j]
+      var designation = facility.designations[j];
 
       // Check if this designation has an override address with valid coordinates
       var hasOverride =
         designation.overrides &&
         designation.overrides.address &&
         designation.overrides.address.latitude != null &&
-        designation.overrides.address.longitude != null
+        designation.overrides.address.longitude != null;
 
-      var lat, lng, address, streetAddress, locationCity, locationState, locationZip, phone, website
+      var lat, lng, address, streetAddress, locationCity, locationState, locationZip, phone, website;
 
       if (hasOverride) {
         // Use the override address (different building/location)
-        var overrideAddr = designation.overrides.address
-        lat = parseFloat(overrideAddr.latitude)
-        lng = parseFloat(overrideAddr.longitude)
+        var overrideAddr = designation.overrides.address;
+        lat = parseFloat(overrideAddr.latitude);
+        lng = parseFloat(overrideAddr.longitude);
 
         // Build a readable address string from the override parts
         var overrideParts = [
@@ -259,30 +259,30 @@ function turnFacilitiesIntoPins(facilities) {
           overrideAddr.city,
           overrideAddr.state,
           overrideAddr.zip,
-        ]
-        address = overrideParts.filter(Boolean).join(', ')
-        streetAddress = [overrideAddr.line1, overrideAddr.line2].filter(Boolean).join(', ')
-        locationCity = overrideAddr.city || ''
-        locationState = overrideAddr.state || ''
-        locationZip = overrideAddr.zip || ''
+        ];
+        address = overrideParts.filter(Boolean).join(', ');
+        streetAddress = [overrideAddr.line1, overrideAddr.line2].filter(Boolean).join(', ');
+        locationCity = overrideAddr.city || '';
+        locationState = overrideAddr.state || '';
+        locationZip = overrideAddr.zip || '';
 
-        phone = designation.overrides.phone || facility.phone
-        website = designation.overrides.url || facility.website
+        phone = designation.overrides.phone || facility.phone;
+        website = designation.overrides.url || facility.website;
       } else {
         // Use the facility's main address
-        lat = parseFloat(facility.latitude)
-        lng = parseFloat(facility.longitude)
+        lat = parseFloat(facility.latitude);
+        lng = parseFloat(facility.longitude);
 
-        var mainAddr = facility.address || {}
-        var mainParts = [mainAddr.line1, mainAddr.line2, mainAddr.city, mainAddr.state, mainAddr.zip]
-        address = mainParts.filter(Boolean).join(', ')
-        streetAddress = [mainAddr.line1, mainAddr.line2].filter(Boolean).join(', ')
-        locationCity = mainAddr.city || ''
-        locationState = mainAddr.state || ''
-        locationZip = mainAddr.zip || ''
+        var mainAddr = facility.address || {};
+        var mainParts = [mainAddr.line1, mainAddr.line2, mainAddr.city, mainAddr.state, mainAddr.zip];
+        address = mainParts.filter(Boolean).join(', ');
+        streetAddress = [mainAddr.line1, mainAddr.line2].filter(Boolean).join(', ');
+        locationCity = mainAddr.city || '';
+        locationState = mainAddr.state || '';
+        locationZip = mainAddr.zip || '';
 
-        phone = facility.phone
-        website = facility.website
+        phone = facility.phone;
+        website = facility.website;
       }
 
       // Skip if the coordinates are not valid numbers
@@ -291,7 +291,7 @@ function turnFacilitiesIntoPins(facilities) {
       }
 
       // Only keep the first location we find at each lat/lng
-      var locationKey = lat + ',' + lng
+      var locationKey = lat + ',' + lng;
       if (!uniqueLocations[locationKey]) {
         uniqueLocations[locationKey] = {
           lat: lat,
@@ -303,16 +303,16 @@ function turnFacilitiesIntoPins(facilities) {
           zip: locationZip,
           phone: phone,
           website: website,
-        }
+        };
       }
     }
 
     // Create a pin for each unique location of this facility
-    var facilityAddr = facility.address || {}
-    var locationKeys = Object.keys(uniqueLocations)
+    facility.address || {};
+    var locationKeys = Object.keys(uniqueLocations);
 
     for (var k = 0; k < locationKeys.length; k++) {
-      var location = uniqueLocations[locationKeys[k]]
+      var location = uniqueLocations[locationKeys[k]];
 
       allPins.push({
         fid: facility.fid,
@@ -328,7 +328,7 @@ function turnFacilitiesIntoPins(facilities) {
         city: location.city,
         state: location.state,
         designationTypes: facilityDesignationTypes,
-      })
+      });
     }
   }
 
@@ -340,55 +340,55 @@ function turnFacilitiesIntoPins(facilities) {
 // =============================================================================
 
 function reorderMobileLayout(component) {
-  var filters = component.querySelector('.map_filters')
+  var filters = component.querySelector('.map_filters');
   if (!filters) return
 
-  var mapRight = component.querySelector('.map_right')
+  var mapRight = component.querySelector('.map_right');
 
   function reorder() {
     if (window.innerWidth <= 991) {
-      component.insertBefore(filters, component.firstChild)
+      component.insertBefore(filters, component.firstChild);
     } else if (mapRight) {
-      mapRight.insertBefore(filters, mapRight.firstChild)
+      mapRight.insertBefore(filters, mapRight.firstChild);
     }
   }
 
-  reorder()
-  window.addEventListener('resize', reorder)
+  reorder();
+  window.addEventListener('resize', reorder);
 }
 
-export default async function (component) {
-  console.log('[COE] Component initializing...')
+async function centersCoe (component) {
+  console.log('[COE] Component initializing...');
 
-  reorderMobileLayout(component)
+  reorderMobileLayout(component);
 
   // --------------------------------------------------------------------------
   // 1. FIND THE HTML ELEMENTS WE NEED
   // --------------------------------------------------------------------------
 
   // The scrollable list of centers next to the map
-  var centersList = component.querySelector("[data-centers='list']")
+  var centersList = component.querySelector("[data-centers='list']");
 
   // The div where the Google Map will be rendered
-  var mapContainer = component.querySelector("[data-centers='map']")
+  var mapContainer = component.querySelector("[data-centers='map']");
 
   // The zip code text input for filtering
-  var zipInput = component.querySelector("[data-custom='centers-zip-field']")
+  var zipInput = component.querySelector("[data-custom='centers-zip-field']");
 
   // The dropdown nav that holds the designation checkboxes
   // (In Webflow this is the <nav> inside the "Designations" dropdown)
-  var checkboxContainer = component.querySelector('.map_filters-right-category-nav')
+  var checkboxContainer = component.querySelector('.map_filters-right-category-nav');
 
   // The container where pagination controls will be rendered
-  var paginationContainer = component.querySelector('[data-centers="pagination"]')
+  var paginationContainer = component.querySelector('[data-centers="pagination"]');
 
   // Clone the list item template (we'll reuse this to create each list entry)
-  var listItemTemplate = document.querySelector('[data-centers="list-item"]').cloneNode(true)
+  var listItemTemplate = document.querySelector('[data-centers="list-item"]').cloneNode(true);
 
   // Check if this instance should only show screening centers.
   // Set data-show-only-screening="true" on the component element in Webflow
   // to lock this map to screening-only mode (hides the designation checkboxes).
-  var showOnlyScreening = component.getAttribute('data-show-only-screening') === 'true'
+  var showOnlyScreening = component.getAttribute('data-show-only-screening') === 'true';
 
   console.log('[COE] DOM elements found:', {
     centersList: !!centersList,
@@ -397,26 +397,26 @@ export default async function (component) {
     checkboxContainer: !!checkboxContainer,
     paginationContainer: !!paginationContainer,
     listItemTemplate: !!listItemTemplate,
-  })
-  console.log('[COE] Mode:', showOnlyScreening ? 'SCREENING-ONLY' : 'NORMAL (all designations)')
+  });
+  console.log('[COE] Mode:', showOnlyScreening ? 'SCREENING-ONLY' : 'NORMAL (all designations)');
 
   // Show a loading message while data is being fetched
-  centersList.innerHTML = '<p style="padding:1rem;color:#666;">Loading centers...</p>'
+  centersList.innerHTML = '<p style="padding:1rem;color:#666;">Loading centers...</p>';
 
   // Prevent all form submissions within this component and disable Webflow form handling
-  var forms = component.querySelectorAll('form')
+  var forms = component.querySelectorAll('form');
   for (var i = 0; i < forms.length; i++) {
     forms[i].addEventListener('submit', function (e) {
-      e.preventDefault()
-    })
-    forms[i].removeAttribute('data-wf-page-id')
-    forms[i].removeAttribute('data-wf-element-id')
-    forms[i].removeAttribute('data-name')
-    forms[i].removeAttribute('action')
+      e.preventDefault();
+    });
+    forms[i].removeAttribute('data-wf-page-id');
+    forms[i].removeAttribute('data-wf-element-id');
+    forms[i].removeAttribute('data-name');
+    forms[i].removeAttribute('action');
   }
-  var formMessages = component.querySelectorAll('.w-form-done, .w-form-fail')
+  var formMessages = component.querySelectorAll('.w-form-done, .w-form-fail');
   for (var i = 0; i < formMessages.length; i++) {
-    formMessages[i].remove()
+    formMessages[i].remove();
   }
 
   // --------------------------------------------------------------------------
@@ -424,14 +424,14 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   try {
-    setOptions({ key: GOOGLE_MAPS_API_KEY, v: 'weekly' })
-    await importLibrary('maps')
-    await importLibrary('marker')
-    console.log('[COE] Google Maps loaded successfully')
+    setOptions({ key: GOOGLE_MAPS_API_KEY, v: 'weekly' });
+    await importLibrary('maps');
+    await importLibrary('marker');
+    console.log('[COE] Google Maps loaded successfully');
   } catch (error) {
-    console.error('Google Maps failed to load:', error)
+    console.error('Google Maps failed to load:', error);
     mapContainer.innerHTML =
-      '<p style="padding:1rem;color:red;">Failed to load Google Maps. Please try again later.</p>'
+      '<p style="padding:1rem;color:red;">Failed to load Google Maps. Please try again later.</p>';
     return
   }
 
@@ -445,90 +445,90 @@ export default async function (component) {
     mapTypeControl: false,
     streetViewControl: false,
     mapId: '883ace1c7764e279269aed54',
-  })
+  });
 
   // --------------------------------------------------------------------------
   // 4. PREPARE THE PIN ICONS
   //    Convert our simple pin configs into the format Google Maps expects.
   // --------------------------------------------------------------------------
 
-  var coeIcon = createGoogleMapsIcon(COE_PIN)
-  var nciIcon = createGoogleMapsIcon(NCI_PIN)
-  var cocIcon = createGoogleMapsIcon(COC_PIN)
+  var coeIcon = createGoogleMapsIcon(COE_PIN);
+  createGoogleMapsIcon(NCI_PIN);
+  createGoogleMapsIcon(COC_PIN);
 
   // This is the icon used for all markers right now.
   // TODO: assign the correct icon per facility once the logic is defined.
-  var defaultIcon = coeIcon
+  var defaultIcon = coeIcon;
 
   // --------------------------------------------------------------------------
   // 5. CREATE A SHARED INFO WINDOW
   //    Only one popup can be open at a time — Google Maps reuses this one.
   // --------------------------------------------------------------------------
 
-  var infoWindow = new google.maps.InfoWindow({ disableAutoPan: true })
+  var infoWindow = new google.maps.InfoWindow({ disableAutoPan: true });
 
   // Remove the default Google Maps InfoWindow styling (bg, shadow, arrow, close button)
-  var infoWindowStyle = document.createElement('style')
+  var infoWindowStyle = document.createElement('style');
   infoWindowStyle.textContent =
     '.gm-style-iw { background: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; max-width: none !important; }' +
     '.gm-style-iw-d { overflow: auto !important; padding: 0 !important; max-width: none !important; }' +
     '.gm-style-iw-tc { display: none !important; }' +
-    '.gm-ui-hover-effect { display: none !important; }'
-  document.head.appendChild(infoWindowStyle)
+    '.gm-ui-hover-effect { display: none !important; }';
+  document.head.appendChild(infoWindowStyle);
 
   // Keep the info window open when the user hovers over it
   infoWindow.addListener('domready', function () {
-    var iwContent = document.querySelector('.gm-style-iw')
+    var iwContent = document.querySelector('.gm-style-iw');
     if (iwContent) {
       iwContent.onmouseover = function () {
-        clearTimeout(closeTimeout)
-      }
+        clearTimeout(closeTimeout);
+      };
       iwContent.onmouseout = function () {
         closeTimeout = setTimeout(function () {
-          infoWindow.close()
-        }, 300)
-      }
+          infoWindow.close();
+        }, 300);
+      };
     }
-  })
+  });
 
   // --------------------------------------------------------------------------
   // 6. FETCH DATA — facilities and designations at the same time
   // --------------------------------------------------------------------------
 
-  var allFacilities = []
-  var designationTypes = [] // e.g. ["screening", "cancer_care", "ipn", "biomarker"]
+  var allFacilities = [];
+  var designationTypes = []; // e.g. ["screening", "cancer_care", "ipn", "biomarker"]
 
   try {
     // Fetch both endpoints at the same time for speed
-    var facilitiesPromise = fetch(API_URL)
-    var designationsPromise = fetch(DESIGNATIONS_URL)
+    var facilitiesPromise = fetch(API_URL);
+    var designationsPromise = fetch(DESIGNATIONS_URL);
 
     // Wait for the facilities response
-    var facilitiesResponse = await facilitiesPromise
+    var facilitiesResponse = await facilitiesPromise;
     if (!facilitiesResponse.ok) {
       throw new Error('Facilities HTTP ' + facilitiesResponse.status)
     }
-    var facilitiesData = await facilitiesResponse.json()
-    allFacilities = facilitiesData.centers || []
-    console.log('[COE] Facilities fetched:', allFacilities.length, 'facilities')
+    var facilitiesData = await facilitiesResponse.json();
+    allFacilities = facilitiesData.centers || [];
+    console.log('[COE] Facilities fetched:', allFacilities.length, 'facilities');
 
     // Wait for the designations response
-    var designationsResponse = await designationsPromise
+    var designationsResponse = await designationsPromise;
     if (!designationsResponse.ok) {
       throw new Error('Designations HTTP ' + designationsResponse.status)
     }
-    var designationsData = await designationsResponse.json()
+    var designationsData = await designationsResponse.json();
 
     // Extract just the type names: ["screening", "cancer_care", "ipn", "biomarker"]
     if (designationsData.types && designationsData.types.length > 0) {
       for (var i = 0; i < designationsData.types.length; i++) {
-        designationTypes.push(designationsData.types[i].type)
+        designationTypes.push(designationsData.types[i].type);
       }
     }
-    console.log('[COE] Designation types from API:', designationTypes)
+    console.log('[COE] Designation types from API:', designationTypes);
   } catch (error) {
-    console.error('Error fetching data:', error)
-    centersList.innerHTML = '<p style="padding:1rem;color:red;">Failed to load centers. Please try again later.</p>'
+    console.error('Error fetching data:', error);
+    centersList.innerHTML = '<p style="padding:1rem;color:red;">Failed to load centers. Please try again later.</p>';
     return
   }
 
@@ -543,92 +543,92 @@ export default async function (component) {
     // In screening-only mode, remove the checkbox filter wrapper from the page
     // entirely so the user can't toggle designation types.
     if (checkboxContainer) {
-      var checkboxFilterWrapper = checkboxContainer.closest('.map_filters-right')
-      console.log('[COE] Screening-only mode — removing checkbox wrapper:', !!checkboxFilterWrapper)
+      var checkboxFilterWrapper = checkboxContainer.closest('.map_filters-right');
+      console.log('[COE] Screening-only mode — removing checkbox wrapper:', !!checkboxFilterWrapper);
       if (checkboxFilterWrapper) {
-        checkboxFilterWrapper.remove()
+        checkboxFilterWrapper.remove();
       }
     }
 
     // Also remove the map references/legend section
-    var mapReferences = component.querySelector('.map_references')
+    var mapReferences = component.querySelector('.map_references');
     if (mapReferences) {
-      mapReferences.remove()
+      mapReferences.remove();
     }
   } else if (checkboxContainer) {
     // Normal mode — populate the checkboxes from the API
 
     // Clear the placeholder checkboxes that were in the Webflow template
-    checkboxContainer.innerHTML = ''
+    checkboxContainer.innerHTML = '';
 
     for (var i = 0; i < designationTypes.length; i++) {
-      var type = designationTypes[i] // e.g. "cancer_care"
-      var label = getDesignationLabel(type) // e.g. "Cancer Care"
+      var type = designationTypes[i]; // e.g. "cancer_care"
+      var label = getDesignationLabel(type); // e.g. "Cancer Care"
 
       // Build the checkbox wrapper (same HTML structure as the Webflow template)
-      var wrapper = document.createElement('div')
-      wrapper.className = 'multi-step_checkbox-wrapper'
+      var wrapper = document.createElement('div');
+      wrapper.className = 'multi-step_checkbox-wrapper';
 
-      var checkbox = document.createElement('input')
-      checkbox.type = 'checkbox'
-      checkbox.name = 'designations'
-      checkbox.id = 'designation-' + type // e.g. "designation-screening"
-      checkbox.value = type // e.g. "screening"
-      checkbox.className = 'multi-step_checkbox_icon'
-      checkbox.checked = true
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'designations';
+      checkbox.id = 'designation-' + type; // e.g. "designation-screening"
+      checkbox.value = type; // e.g. "screening"
+      checkbox.className = 'multi-step_checkbox_icon';
+      checkbox.checked = true;
 
-      var labelEl = document.createElement('label')
-      labelEl.htmlFor = checkbox.id
-      labelEl.className = 'form_field-label'
-      labelEl.textContent = label
+      var labelEl = document.createElement('label');
+      labelEl.htmlFor = checkbox.id;
+      labelEl.className = 'form_field-label';
+      labelEl.textContent = label;
 
-      wrapper.appendChild(checkbox)
-      wrapper.appendChild(labelEl)
-      checkboxContainer.appendChild(wrapper)
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(labelEl);
+      checkboxContainer.appendChild(wrapper);
 
       // Re-render the map and list whenever a checkbox is toggled
-      checkbox.addEventListener('change', applyAllFilters)
+      checkbox.addEventListener('change', applyAllFilters);
     }
-    console.log('[COE] Checkboxes created for:', designationTypes)
+    console.log('[COE] Checkboxes created for:', designationTypes);
   }
 
   // --------------------------------------------------------------------------
   // 8. TRANSFORM THE RAW DATA INTO PIN RECORDS
   // --------------------------------------------------------------------------
 
-  var allPins = turnFacilitiesIntoPins(allFacilities)
-  console.log('[COE] Pins created from facilities:', allPins.length, 'pins')
+  var allPins = turnFacilitiesIntoPins(allFacilities);
+  console.log('[COE] Pins created from facilities:', allPins.length, 'pins');
 
   // If screening-only mode is on, keep only pins that have a "screening" designation
   if (showOnlyScreening) {
-    var screeningOnly = []
+    var screeningOnly = [];
     for (var i = 0; i < allPins.length; i++) {
       if (allPins[i].designationTypes.indexOf('screening') !== -1) {
-        screeningOnly.push(allPins[i])
+        screeningOnly.push(allPins[i]);
       }
     }
-    allPins = screeningOnly
-    console.log('[COE] Screening-only filter applied:', allPins.length, 'pins remaining')
+    allPins = screeningOnly;
+    console.log('[COE] Screening-only filter applied:', allPins.length, 'pins remaining');
   }
 
   // --------------------------------------------------------------------------
   // 9. STATE — these variables are updated every time we re-render
   // --------------------------------------------------------------------------
 
-  var currentMarkers = [] // Google Maps marker objects currently on the map
-  var currentClusterer = null // the clustering engine that groups nearby markers
-  var closeTimeout = null // timer for delayed info window close on mouseout
-  var isInitialRender = true
-  var currentPage = 1
-  var currentFilteredPins = []
-  var searchLocation = null
-  var searchLocationMarker = null
-  var searchNearbyCount = 0
-  var debounceTimer = null
-  var postalCodeLayer = null
-  var searchMessage = component.querySelector('[data-centers="search-message"]')
-  console.log('[COE] searchMessage element found:', !!searchMessage, searchMessage)
-  if (searchMessage) searchMessage.style.display = 'none'
+  var currentMarkers = []; // Google Maps marker objects currently on the map
+  var currentClusterer = null; // the clustering engine that groups nearby markers
+  var closeTimeout = null; // timer for delayed info window close on mouseout
+  var isInitialRender = true;
+  var currentPage = 1;
+  var currentFilteredPins = [];
+  var searchLocation = null;
+  var searchLocationMarker = null;
+  var searchNearbyCount = 0;
+  var debounceTimer = null;
+  var postalCodeLayer = null;
+  var searchMessage = component.querySelector('[data-centers="search-message"]');
+  console.log('[COE] searchMessage element found:', !!searchMessage, searchMessage);
+  if (searchMessage) searchMessage.style.display = 'none';
 
   // --------------------------------------------------------------------------
   // 10. RENDER FUNCTION — draws pins on the map and items in the list
@@ -636,27 +636,27 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function renderCenters(pinsToShow) {
-    console.log('[COE] Rendering', pinsToShow.length, 'centers')
+    console.log('[COE] Rendering', pinsToShow.length, 'centers');
 
     // Store filtered pins for pagination navigation
-    currentFilteredPins = pinsToShow
+    currentFilteredPins = pinsToShow;
 
     // ── Clear previous markers ──────────────────────────────────────────
     if (currentClusterer) {
-      currentClusterer.clearMarkers()
-      currentClusterer = null
+      currentClusterer.clearMarkers();
+      currentClusterer = null;
     }
     for (var i = 0; i < currentMarkers.length; i++) {
-      currentMarkers[i].map = null
+      currentMarkers[i].map = null;
     }
-    currentMarkers = []
+    currentMarkers = [];
     if (searchLocationMarker) {
-      searchLocationMarker.map = null
-      searchLocationMarker = null
+      searchLocationMarker.map = null;
+      searchLocationMarker = null;
     }
 
     // ── Render the list (paginated) ─────────────────────────────────────
-    renderListPage()
+    renderListPage();
 
     // ── Update search message ───────────────────────────────────────────
     console.log(
@@ -668,22 +668,22 @@ export default async function (component) {
       pinsToShow.length,
       'searchNearbyCount:',
       searchNearbyCount
-    )
+    );
     if (searchMessage) {
       if (searchLocation && pinsToShow.length > 0) {
-        var locationLabel = searchLocation.city + ', ' + searchLocation.state
+        var locationLabel = searchLocation.city + ', ' + searchLocation.state;
         if (searchNearbyCount > 0) {
           searchMessage.textContent =
-            pinsToShow.length + ' center' + (pinsToShow.length !== 1 ? 's' : '') + ' near ' + locationLabel
+            pinsToShow.length + ' center' + (pinsToShow.length !== 1 ? 's' : '') + ' near ' + locationLabel;
         } else {
-          var miles = Math.round(pinsToShow[0]._distance)
-          searchMessage.textContent = 'Nearest center: ' + miles + ' miles from ' + locationLabel
+          var miles = Math.round(pinsToShow[0]._distance);
+          searchMessage.textContent = 'Nearest center: ' + miles + ' miles from ' + locationLabel;
         }
-        console.log('[COE] Search message SHOWN:', searchMessage.textContent)
-        searchMessage.style.display = ''
+        console.log('[COE] Search message SHOWN:', searchMessage.textContent);
+        searchMessage.style.display = '';
       } else {
-        console.log('[COE] Search message HIDDEN (no searchLocation or no pins)')
-        searchMessage.style.display = 'none'
+        console.log('[COE] Search message HIDDEN (no searchLocation or no pins)');
+        searchMessage.style.display = 'none';
       }
     }
 
@@ -692,11 +692,11 @@ export default async function (component) {
     }
 
     // ── Create ALL map markers (not paginated) ──────────────────────────
-    var bounds = new google.maps.LatLngBounds()
+    var bounds = new google.maps.LatLngBounds();
 
     for (var i = 0; i < pinsToShow.length; i++) {
-      var pin = pinsToShow[i]
-      var position = { lat: pin.lat, lng: pin.lng }
+      var pin = pinsToShow[i];
+      var position = { lat: pin.lat, lng: pin.lng };
 
       var marker = new google.maps.marker.AdvancedMarkerElement({
         position: position,
@@ -704,17 +704,17 @@ export default async function (component) {
         content: createAdvancedPin(),
         collisionBehavior: google.maps.CollisionBehavior.REQUIRED_AND_HIDES_OPTIONAL,
         zIndex: 1000,
-      })
+      });
 
-      marker.element.addEventListener('mouseenter', createMarkerClickHandler(marker, pin))
+      marker.element.addEventListener('mouseenter', createMarkerClickHandler(marker, pin));
       marker.element.addEventListener('mouseleave', function () {
         closeTimeout = setTimeout(function () {
-          infoWindow.close()
-        }, 300)
-      })
+          infoWindow.close();
+        }, 300);
+      });
 
-      currentMarkers.push(marker)
-      bounds.extend(position)
+      currentMarkers.push(marker);
+      bounds.extend(position);
     }
 
     // ── Set up clustering ───────────────────────────────────────────────
@@ -723,18 +723,18 @@ export default async function (component) {
       markers: currentMarkers,
       renderer: { render: renderCluster },
       algorithm: new SuperClusterAlgorithm({ radius: CLUSTER_RADIUS, minPoints: 3 }),
-    })
+    });
 
     // ── Show or hide the search location marker ─────────────────────────
     if (searchLocationMarker) {
-      searchLocationMarker.map = null
-      searchLocationMarker = null
+      searchLocationMarker.map = null;
+      searchLocationMarker = null;
     }
 
     if (searchLocation) {
-      var searchDot = document.createElement('div')
+      var searchDot = document.createElement('div');
       searchDot.style.cssText =
-        'width:20px;height:20px;background:#4285F4;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);'
+        'width:20px;height:20px;background:#4285F4;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);';
 
       searchLocationMarker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: searchLocation.lat, lng: searchLocation.lng },
@@ -742,28 +742,28 @@ export default async function (component) {
         content: searchDot,
         zIndex: 9999,
         title: 'Your search location',
-      })
+      });
 
-      bounds.extend({ lat: searchLocation.lat, lng: searchLocation.lng })
+      bounds.extend({ lat: searchLocation.lat, lng: searchLocation.lng });
     }
 
     // ── Adjust the map view to show all pins ────────────────────────────
     if (isInitialRender) {
-      map.setCenter({ lat: STARTING_LAT, lng: STARTING_LNG })
-      map.setZoom(STARTING_ZOOM)
-      isInitialRender = false
+      map.setCenter({ lat: STARTING_LAT, lng: STARTING_LNG });
+      map.setZoom(STARTING_ZOOM);
+      isInitialRender = false;
     } else if (searchLocation) {
-      map.fitBounds(bounds, { padding: 50 })
+      map.fitBounds(bounds, { padding: 50 });
       google.maps.event.addListenerOnce(map, 'bounds_changed', function () {
         if (map.getZoom() > MAX_SEARCH_ZOOM) {
-          map.setZoom(MAX_SEARCH_ZOOM)
+          map.setZoom(MAX_SEARCH_ZOOM);
         }
-      })
+      });
     } else if (currentMarkers.length > 1) {
-      map.fitBounds(bounds)
+      map.fitBounds(bounds);
     } else if (currentMarkers.length === 1) {
-      map.setCenter(currentMarkers[0].position)
-      map.setZoom(CLICK_ZOOM)
+      map.setCenter(currentMarkers[0].position);
+      map.setZoom(CLICK_ZOOM);
     }
   }
 
@@ -772,101 +772,101 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function renderListPage() {
-    centersList.innerHTML = ''
-    if (paginationContainer) paginationContainer.innerHTML = ''
+    centersList.innerHTML = '';
+    if (paginationContainer) paginationContainer.innerHTML = '';
 
     if (currentFilteredPins.length === 0) {
-      centersList.innerHTML = '<p style="padding:1rem;color:#666;">No centers match your search.</p>'
+      centersList.innerHTML = '<p style="padding:1rem;color:#666;">No centers match your search.</p>';
       return
     }
 
-    var totalPages = Math.ceil(currentFilteredPins.length / ITEMS_PER_PAGE)
+    var totalPages = Math.ceil(currentFilteredPins.length / ITEMS_PER_PAGE);
 
     // Clamp current page
-    if (currentPage > totalPages) currentPage = totalPages
-    if (currentPage < 1) currentPage = 1
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
 
-    var startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-    var endIndex = startIndex + ITEMS_PER_PAGE
-    if (endIndex > currentFilteredPins.length) endIndex = currentFilteredPins.length
+    var startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    var endIndex = startIndex + ITEMS_PER_PAGE;
+    if (endIndex > currentFilteredPins.length) endIndex = currentFilteredPins.length;
 
     // ── Render the page's list items ──────────────────────────────────────
     for (var i = startIndex; i < endIndex; i++) {
-      var pin = currentFilteredPins[i]
+      var pin = currentFilteredPins[i];
 
-      var listItem = listItemTemplate.cloneNode(true)
-      listItem.dataset.id = pin.fid
+      var listItem = listItemTemplate.cloneNode(true);
+      listItem.dataset.id = pin.fid;
 
-      var iconElement = listItem.querySelector('[data-center="icon"]')
+      var iconElement = listItem.querySelector('[data-center="icon"]');
       if (iconElement) {
-        iconElement.src = defaultIcon.url
-        iconElement.alt = 'Map pin'
+        iconElement.src = defaultIcon.url;
+        iconElement.alt = 'Map pin';
       }
 
-      var imageElement = listItem.querySelector('[data-center="image"]')
+      var imageElement = listItem.querySelector('[data-center="image"]');
       if (imageElement) {
         if (pin.imageUrl) {
-          imageElement.src = pin.imageUrl
-          imageElement.alt = pin.name
+          imageElement.src = pin.imageUrl;
+          imageElement.alt = pin.name;
         } else {
-          imageElement.remove()
+          imageElement.remove();
         }
       }
 
-      var nameElement = listItem.querySelector('[data-custom="center-name"]')
-      if (nameElement) nameElement.textContent = pin.name
+      var nameElement = listItem.querySelector('[data-custom="center-name"]');
+      if (nameElement) nameElement.textContent = pin.name;
 
-      var typeElement = listItem.querySelector('[data-custom="center-type"]')
+      var typeElement = listItem.querySelector('[data-custom="center-type"]');
       if (typeElement) {
-        var labels = []
+        var labels = [];
         for (var d = 0; d < pin.designationTypes.length; d++) {
-          labels.push(getDesignationLabel(pin.designationTypes[d]))
+          labels.push(getDesignationLabel(pin.designationTypes[d]));
         }
-        typeElement.textContent = labels.join(', ')
+        typeElement.textContent = labels.join(', ');
       }
 
-      var addressElement = listItem.querySelector('[data-custom="center-address"]')
-      if (addressElement) addressElement.textContent = pin.streetAddress
+      var addressElement = listItem.querySelector('[data-custom="center-address"]');
+      if (addressElement) addressElement.textContent = pin.streetAddress;
 
-      var cityStateElement = listItem.querySelector('[data-custom="center-city-state"]')
+      var cityStateElement = listItem.querySelector('[data-custom="center-city-state"]');
       if (cityStateElement) {
-        cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ')
+        cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ');
       }
 
-      var phoneLink = listItem.querySelector('[data-centers="phone"]')
+      var phoneLink = listItem.querySelector('[data-centers="phone"]');
       if (phoneLink) {
         if (pin.phone) {
-          phoneLink.textContent = pin.phone
-          phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '')
+          phoneLink.textContent = pin.phone;
+          phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '');
         } else {
           if (phoneLink.parentElement) {
-            phoneLink.parentElement.remove()
+            phoneLink.parentElement.remove();
           }
         }
       }
 
-      var websiteLink = listItem.querySelector('[data-center="website"]')
+      var websiteLink = listItem.querySelector('[data-center="website"]');
       if (websiteLink) {
         if (pin.website) {
-          websiteLink.href = pin.website
+          websiteLink.href = pin.website;
         } else {
-          websiteLink.remove()
+          websiteLink.remove();
         }
       }
 
-      var directionsLink = listItem.querySelector('[data-centers="directions"]')
+      var directionsLink = listItem.querySelector('[data-centers="directions"]');
       if (directionsLink) {
         directionsLink.href =
-          'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving'
+          'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving';
       }
 
-      listItem.addEventListener('click', createListItemClickHandler(pin))
-      centersList.appendChild(listItem)
+      listItem.addEventListener('click', createListItemClickHandler(pin));
+      centersList.appendChild(listItem);
     }
 
     // ── Render pagination controls into dedicated container ───────────────
     if (totalPages > 1 && paginationContainer) {
-      buildPaginationControls(paginationContainer, totalPages)
+      buildPaginationControls(paginationContainer, totalPages);
     }
   }
 
@@ -875,67 +875,67 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function buildPaginationControls(container, totalPages) {
-    container.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:4px;padding:12px 8px;'
+    container.style.cssText = 'display:flex;justify-content:center;align-items:center;gap:4px;padding:12px 8px;';
 
     // ── Prev arrow ──
-    var prevBtn = document.createElement('button')
-    prevBtn.textContent = '\u2039'
-    prevBtn.disabled = currentPage === 1
-    prevBtn.style.cssText = paginationButtonStyle(false, prevBtn.disabled)
+    var prevBtn = document.createElement('button');
+    prevBtn.textContent = '\u2039';
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.style.cssText = paginationButtonStyle(false, prevBtn.disabled);
     prevBtn.addEventListener('click', function () {
       if (currentPage > 1) {
-        currentPage--
-        renderListPage()
-        centersList.scrollTop = 0
+        currentPage--;
+        renderListPage();
+        centersList.scrollTop = 0;
       }
-    })
-    container.appendChild(prevBtn)
+    });
+    container.appendChild(prevBtn);
 
     // ── Page number buttons (max 3: prev sibling, current, next sibling) ──
-    var pages = getPageNumbers(currentPage, totalPages, 3)
+    var pages = getPageNumbers(currentPage, totalPages, 3);
     for (var i = 0; i < pages.length; i++) {
-      var page = pages[i]
+      var page = pages[i];
       if (page === '...') {
-        var ellipsis = document.createElement('span')
-        ellipsis.textContent = '...'
-        ellipsis.style.cssText = 'padding:0 4px;color:#666;font-size:14px;user-select:none;'
-        container.appendChild(ellipsis)
+        var ellipsis = document.createElement('span');
+        ellipsis.textContent = '...';
+        ellipsis.style.cssText = 'padding:0 4px;color:#666;font-size:14px;user-select:none;';
+        container.appendChild(ellipsis);
       } else {
-        var pageBtn = document.createElement('button')
-        pageBtn.textContent = page
-        var isActive = page === currentPage
-        pageBtn.style.cssText = paginationButtonStyle(isActive, false)
-        pageBtn.addEventListener('click', createPageClickHandler(page))
-        container.appendChild(pageBtn)
+        var pageBtn = document.createElement('button');
+        pageBtn.textContent = page;
+        var isActive = page === currentPage;
+        pageBtn.style.cssText = paginationButtonStyle(isActive, false);
+        pageBtn.addEventListener('click', createPageClickHandler(page));
+        container.appendChild(pageBtn);
       }
     }
 
     // ── Next arrow ──
-    var nextBtn = document.createElement('button')
-    nextBtn.textContent = '\u203A'
-    nextBtn.disabled = currentPage === totalPages
-    nextBtn.style.cssText = paginationButtonStyle(false, nextBtn.disabled)
+    var nextBtn = document.createElement('button');
+    nextBtn.textContent = '\u203A';
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.style.cssText = paginationButtonStyle(false, nextBtn.disabled);
     nextBtn.addEventListener('click', function () {
       if (currentPage < totalPages) {
-        currentPage++
-        renderListPage()
-        centersList.scrollTop = 0
+        currentPage++;
+        renderListPage();
+        centersList.scrollTop = 0;
       }
-    })
-    container.appendChild(nextBtn)
+    });
+    container.appendChild(nextBtn);
   }
 
   function createPageClickHandler(page) {
     return function () {
-      currentPage = page
-      renderListPage()
-      centersList.scrollTop = 0
+      currentPage = page;
+      renderListPage();
+      centersList.scrollTop = 0;
     }
   }
 
   function paginationButtonStyle(isActive, isDisabled) {
     var base =
-      'min-width:32px;height:32px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;'
+      'min-width:32px;height:32px;border:1px solid #ddd;border-radius:4px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;';
     if (isActive) return base + 'background:#2c3495;color:#fff;border-color:#2c3495;font-weight:700;'
     if (isDisabled) return base + 'background:#f5f5f5;color:#ccc;cursor:default;'
     return base + 'background:#fff;color:#333;'
@@ -943,36 +943,36 @@ export default async function (component) {
 
   function getPageNumbers(current, total, maxButtons) {
     if (total <= maxButtons) {
-      var arr = []
-      for (var i = 1; i <= total; i++) arr.push(i)
+      var arr = [];
+      for (var i = 1; i <= total; i++) arr.push(i);
       return arr
     }
 
-    var pages = []
-    var half = Math.floor(maxButtons / 2)
-    var start = current - half
-    var end = current + half
+    var pages = [];
+    var half = Math.floor(maxButtons / 2);
+    var start = current - half;
+    var end = current + half;
 
     if (start < 1) {
-      end += 1 - start
-      start = 1
+      end += 1 - start;
+      start = 1;
     }
     if (end > total) {
-      start -= end - total
-      end = total
+      start -= end - total;
+      end = total;
     }
-    if (start < 1) start = 1
+    if (start < 1) start = 1;
 
     if (start > 1) {
-      pages.push(1)
-      if (start > 2) pages.push('...')
+      pages.push(1);
+      if (start > 2) pages.push('...');
     }
     for (var i = start; i <= end; i++) {
-      pages.push(i)
+      pages.push(i);
     }
     if (end < total) {
-      if (end < total - 1) pages.push('...')
-      pages.push(total)
+      if (end < total - 1) pages.push('...');
+      pages.push(total);
     }
 
     return pages
@@ -984,72 +984,72 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function buildInfoWindowElement(pin) {
-    var item = listItemTemplate.cloneNode(true)
-    item.style.maxWidth = '18.5rem'
+    var item = listItemTemplate.cloneNode(true);
+    item.style.maxWidth = '18.5rem';
 
-    var iconElement = item.querySelector('[data-center="icon"]')
+    var iconElement = item.querySelector('[data-center="icon"]');
     if (iconElement) {
-      iconElement.src = defaultIcon.url
-      iconElement.alt = 'Map pin'
+      iconElement.src = defaultIcon.url;
+      iconElement.alt = 'Map pin';
     }
 
-    var imageElement = item.querySelector('[data-center="image"]')
+    var imageElement = item.querySelector('[data-center="image"]');
     if (imageElement) {
       if (pin.imageUrl) {
-        imageElement.src = pin.imageUrl
-        imageElement.alt = pin.name
-        imageElement.style.maxHeight = '8rem'
-        imageElement.style.objectFit = 'cover'
+        imageElement.src = pin.imageUrl;
+        imageElement.alt = pin.name;
+        imageElement.style.maxHeight = '8rem';
+        imageElement.style.objectFit = 'cover';
       } else {
-        imageElement.remove()
+        imageElement.remove();
       }
     }
 
-    var nameElement = item.querySelector('[data-custom="center-name"]')
-    if (nameElement) nameElement.textContent = pin.name
+    var nameElement = item.querySelector('[data-custom="center-name"]');
+    if (nameElement) nameElement.textContent = pin.name;
 
-    var typeElement = item.querySelector('[data-custom="center-type"]')
+    var typeElement = item.querySelector('[data-custom="center-type"]');
     if (typeElement) {
-      var labels = []
+      var labels = [];
       for (var d = 0; d < pin.designationTypes.length; d++) {
-        labels.push(getDesignationLabel(pin.designationTypes[d]))
+        labels.push(getDesignationLabel(pin.designationTypes[d]));
       }
-      typeElement.textContent = labels.join(', ')
+      typeElement.textContent = labels.join(', ');
     }
 
-    var addressElement = item.querySelector('[data-custom="center-address"]')
-    if (addressElement) addressElement.textContent = pin.streetAddress
+    var addressElement = item.querySelector('[data-custom="center-address"]');
+    if (addressElement) addressElement.textContent = pin.streetAddress;
 
-    var cityStateElement = item.querySelector('[data-custom="center-city-state"]')
+    var cityStateElement = item.querySelector('[data-custom="center-city-state"]');
     if (cityStateElement) {
-      cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ')
+      cityStateElement.textContent = [pin.city, pin.state].filter(Boolean).join(', ');
     }
 
-    var phoneLink = item.querySelector('[data-centers="phone"]')
+    var phoneLink = item.querySelector('[data-centers="phone"]');
     if (phoneLink) {
       if (pin.phone) {
-        phoneLink.textContent = pin.phone
-        phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '')
+        phoneLink.textContent = pin.phone;
+        phoneLink.href = 'tel:' + pin.phone.replace(/[^+\d]/g, '');
       } else {
         if (phoneLink.parentElement) {
-          phoneLink.parentElement.remove()
+          phoneLink.parentElement.remove();
         }
       }
     }
 
-    var websiteLink = item.querySelector('[data-center="website"]')
+    var websiteLink = item.querySelector('[data-center="website"]');
     if (websiteLink) {
       if (pin.website) {
-        websiteLink.href = pin.website
+        websiteLink.href = pin.website;
       } else {
-        websiteLink.remove()
+        websiteLink.remove();
       }
     }
 
-    var directionsLink = item.querySelector('[data-centers="directions"]')
+    var directionsLink = item.querySelector('[data-centers="directions"]');
     if (directionsLink) {
       directionsLink.href =
-        'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving'
+        'https://www.google.com/maps/dir/?api=1&destination=' + pin.lat + ',' + pin.lng + '&travelmode=driving';
     }
 
     return item
@@ -1063,15 +1063,15 @@ export default async function (component) {
 
   function createListItemClickHandler(pin) {
     return function () {
-      map.setCenter({ lat: pin.lat, lng: pin.lng })
-      map.setZoom(CLICK_ZOOM)
+      map.setCenter({ lat: pin.lat, lng: pin.lng });
+      map.setZoom(CLICK_ZOOM);
 
       // Find the matching marker on the map and open its popup
       for (var i = 0; i < currentMarkers.length; i++) {
-        var markerPosition = currentMarkers[i].position
+        var markerPosition = currentMarkers[i].position;
         if (markerPosition.lat === pin.lat && markerPosition.lng === pin.lng) {
-          infoWindow.setContent(buildInfoWindowElement(pin))
-          infoWindow.open({ map: map, anchor: currentMarkers[i] })
+          infoWindow.setContent(buildInfoWindowElement(pin));
+          infoWindow.open({ map: map, anchor: currentMarkers[i] });
           break
         }
       }
@@ -1080,9 +1080,9 @@ export default async function (component) {
 
   function createMarkerClickHandler(marker, pin) {
     return function () {
-      clearTimeout(closeTimeout)
-      infoWindow.setContent(buildInfoWindowElement(pin))
-      infoWindow.open({ map: map, anchor: marker })
+      clearTimeout(closeTimeout);
+      infoWindow.setContent(buildInfoWindowElement(pin));
+      infoWindow.open({ map: map, anchor: marker });
     }
   }
 
@@ -1092,13 +1092,13 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   function renderCluster(clusterData) {
-    var count = clusterData.count
-    var position = clusterData.position
-    var svg = createClusterSvg(count)
+    var count = clusterData.count;
+    var position = clusterData.position;
+    var svg = createClusterSvg(count);
 
-    var clusterElement = document.createElement('div')
-    clusterElement.innerHTML = svg
-    clusterElement.style.cursor = 'pointer'
+    var clusterElement = document.createElement('div');
+    clusterElement.innerHTML = svg;
+    clusterElement.style.cursor = 'pointer';
 
     return new google.maps.marker.AdvancedMarkerElement({
       position: position,
@@ -1115,110 +1115,110 @@ export default async function (component) {
   // --------------------------------------------------------------------------
 
   async function applyAllFilters() {
-    currentPage = 1
-    var filteredPins = allPins
-    console.log('[COE] Applying filters... (starting with', allPins.length, 'total pins)')
+    currentPage = 1;
+    var filteredPins = allPins;
+    console.log('[COE] Applying filters... (starting with', allPins.length, 'total pins)');
 
     // ── Step 1: Filter by designation checkboxes ────────────────────────
     // Applied BEFORE zip/density search so the density-adaptive logic
     // only considers facilities of the selected designation types.
     if (showOnlyScreening) {
-      console.log('[COE] Designation filter skipped (screening-only mode)')
+      console.log('[COE] Designation filter skipped (screening-only mode)');
     }
 
-    var selectedTypes = []
+    var selectedTypes = [];
     if (!showOnlyScreening && checkboxContainer) {
-      var checkedBoxes = checkboxContainer.querySelectorAll('input[name="designations"]:checked')
+      var checkedBoxes = checkboxContainer.querySelectorAll('input[name="designations"]:checked');
       for (var i = 0; i < checkedBoxes.length; i++) {
-        selectedTypes.push(checkedBoxes[i].value)
+        selectedTypes.push(checkedBoxes[i].value);
       }
       console.log(
         '[COE] Designation filter — checked types:',
         selectedTypes.length > 0 ? selectedTypes : '(none — showing all)'
-      )
+      );
     }
 
     if (!showOnlyScreening && selectedTypes.length === 0) {
-      filteredPins = []
-      console.log('[COE] No designations selected — showing no results')
+      filteredPins = [];
+      console.log('[COE] No designations selected — showing no results');
     } else if (selectedTypes.length > 0) {
-      var designationMatches = []
+      var designationMatches = [];
       for (var i = 0; i < filteredPins.length; i++) {
-        var pin = filteredPins[i]
+        var pin = filteredPins[i];
 
-        var pinMatchesFilter = false
+        var pinMatchesFilter = false;
         for (var j = 0; j < selectedTypes.length; j++) {
           if (pin.designationTypes.indexOf(selectedTypes[j]) !== -1) {
-            pinMatchesFilter = true
+            pinMatchesFilter = true;
             break
           }
         }
 
         if (pinMatchesFilter) {
-          designationMatches.push(pin)
+          designationMatches.push(pin);
         }
       }
-      filteredPins = designationMatches
-      console.log('[COE] Designation filter result:', filteredPins.length, 'matches')
+      filteredPins = designationMatches;
+      console.log('[COE] Designation filter result:', filteredPins.length, 'matches');
     }
 
     // ── Step 2: Filter by search input (zip code or city/state) ────────
-    var typedInput = zipInput.value.trim()
+    var typedInput = zipInput.value.trim();
 
-    console.log('[COE] typedInput:', JSON.stringify(typedInput), 'length:', typedInput.length)
+    console.log('[COE] typedInput:', JSON.stringify(typedInput), 'length:', typedInput.length);
 
     if (typedInput.length >= 3) {
       // ── 3+ chars: geocode and distance-based search ──
-      console.log('[COE] Calling geocodeInput for:', typedInput)
-      var geo = await geocodeInput(typedInput)
-      console.log('[COE] Geocode response:', geo)
+      console.log('[COE] Calling geocodeInput for:', typedInput);
+      var geo = await geocodeInput(typedInput);
+      console.log('[COE] Geocode response:', geo);
       if (geo) {
-        searchLocation = { lat: geo.lat, lng: geo.lng, city: geo.city, state: geo.state }
+        searchLocation = { lat: geo.lat, lng: geo.lng, city: geo.city, state: geo.state };
 
         // Show zip boundary outline if available
         if (geo.placeId && postalCodeLayer) {
-          var searchedPlaceId = geo.placeId
+          var searchedPlaceId = geo.placeId;
           postalCodeLayer.style = function (options) {
             if (options.feature.placeId === searchedPlaceId) {
               return { strokeColor: '#2c3495', strokeWeight: 2, fillOpacity: 0.05, fillColor: '#2c3495' }
             }
             return null
-          }
+          };
         }
 
         for (var i = 0; i < filteredPins.length; i++) {
-          filteredPins[i]._distance = haversineDistance(geo.lat, geo.lng, filteredPins[i].lat, filteredPins[i].lng)
+          filteredPins[i]._distance = haversineDistance(geo.lat, geo.lng, filteredPins[i].lat, filteredPins[i].lng);
         }
 
         filteredPins = filteredPins.slice().sort(function (a, b) {
           return a._distance - b._distance
-        })
+        });
 
         var nearby = filteredPins.filter(function (p) {
           return p._distance <= NEARBY_RADIUS_MILES
-        })
-        searchNearbyCount = nearby.length
-        filteredPins = nearby.length > 0 ? nearby : [filteredPins[0]]
-        console.log('[COE] Distance search from', geo.city + ', ' + geo.state + ':', filteredPins.length, 'results')
+        });
+        searchNearbyCount = nearby.length;
+        filteredPins = nearby.length > 0 ? nearby : [filteredPins[0]];
+        console.log('[COE] Distance search from', geo.city + ', ' + geo.state + ':', filteredPins.length, 'results');
       } else {
-        searchLocation = null
-        if (postalCodeLayer) postalCodeLayer.style = null
-        filteredPins = []
-        console.log('[COE] Geocode failed for:', typedInput)
+        searchLocation = null;
+        if (postalCodeLayer) postalCodeLayer.style = null;
+        filteredPins = [];
+        console.log('[COE] Geocode failed for:', typedInput);
       }
     } else if (typedInput.length > 0) {
       // ── 1-2 chars: too short, do nothing (keep all pins) ──
-      searchLocation = null
-      if (postalCodeLayer) postalCodeLayer.style = null
-      console.log('[COE] Input too short, showing all')
+      searchLocation = null;
+      if (postalCodeLayer) postalCodeLayer.style = null;
+      console.log('[COE] Input too short, showing all');
     } else {
-      searchLocation = null
-      if (postalCodeLayer) postalCodeLayer.style = null
+      searchLocation = null;
+      if (postalCodeLayer) postalCodeLayer.style = null;
     }
 
     // ── Step 3: Render the filtered results ─────────────────────────────
-    console.log('[COE] Final filtered count:', filteredPins.length, 'pins to render')
-    renderCenters(filteredPins)
+    console.log('[COE] Final filtered count:', filteredPins.length, 'pins to render');
+    renderCenters(filteredPins);
   }
 
   // --------------------------------------------------------------------------
@@ -1227,46 +1227,49 @@ export default async function (component) {
 
   // Clean up: remove the template element from the page BEFORE initial render
   // so it doesn't get confused with rendered list items
-  var templateElement = document.querySelector('[data-centers="list-item"]')
+  var templateElement = document.querySelector('[data-centers="list-item"]');
   if (templateElement) {
-    templateElement.remove()
+    templateElement.remove();
   }
 
   // Try to get the POSTAL_CODE feature layer for zip boundary outlines
   try {
-    postalCodeLayer = map.getFeatureLayer('POSTAL_CODE')
+    postalCodeLayer = map.getFeatureLayer('POSTAL_CODE');
   } catch (e) {
-    console.log('[COE] POSTAL_CODE feature layer not available:', e.message)
+    console.log('[COE] POSTAL_CODE feature layer not available:', e.message);
   }
 
   // Draw all centers on first load
-  console.log('[COE] Initial render with', allPins.length, 'total pins')
-  renderCenters(allPins)
+  console.log('[COE] Initial render with', allPins.length, 'total pins');
+  renderCenters(allPins);
 
   // Prevent Enter key from triggering form submission on the zip field
   zipInput.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
-      e.preventDefault()
+      e.preventDefault();
     }
-  })
+  });
 
   // Re-render whenever the user types in the search field (debounced for geocode)
   zipInput.addEventListener('input', function () {
-    clearTimeout(debounceTimer)
-    var val = zipInput.value.trim()
-    console.log('[COE] Search input changed:', JSON.stringify(val), 'length:', val.length)
+    clearTimeout(debounceTimer);
+    var val = zipInput.value.trim();
+    console.log('[COE] Search input changed:', JSON.stringify(val), 'length:', val.length);
 
     if (val.length >= 3) {
-      console.log('[COE] Debouncing geocode call for:', val)
+      console.log('[COE] Debouncing geocode call for:', val);
       debounceTimer = setTimeout(function () {
-        applyAllFilters()
-      }, 500)
+        applyAllFilters();
+      }, 500);
     } else if (val.length === 0) {
-      applyAllFilters()
+      applyAllFilters();
     }
-  })
+  });
 
   // (Checkbox listeners were already added in step 7 when we created them)
 
-  console.log('[COE] Component ready!')
+  console.log('[COE] Component ready!');
 }
+
+export { centersCoe as default };
+//# sourceMappingURL=centers-coe-BXsvHP2Z.js.map
