@@ -53,6 +53,10 @@ const components = [
     importFn: () => import('./components/forms/support-group-interest.js'),
   },
   {
+    selector: "[data-component='email-subscribe']",
+    importFn: () => import('./components/forms/email-subscribe.js'),
+  },
+  {
     selector: "[data-component='graphics-bars']",
     importFn: () => import('./components/graphics/graphics-bars.js'),
   },
